@@ -1,16 +1,38 @@
 'use client';
 
-import React, { useState, useCallback } from 'react';
-import { ArrowLeft, ArrowRight, BookOpen, GraduationCap, Award, CheckCircle2, Clock, Sparkles } from 'lucide-react';
-import { academicRecords, SemesterRecord } from '@/data/academics';
+import React, { useState, useCallback, useMemo } from 'react';
+import { ArrowLeft, ArrowRight, GraduationCap, CheckCircle2, Clock, Sparkles, Compass } from 'lucide-react';
+import { academicRecords, SemesterRecord, calculateCumulativeCGPA } from '@/data/academics';
+import type { AcademicYearbookContent } from '@/lib/cms/types';
 import { cn } from '@/lib/utils';
 
-export const AcademicYearbook: React.FC = () => {
+export interface AcademicYearbookProps {
+  content?: AcademicYearbookContent;
+}
+
+export const AcademicYearbook: React.FC<AcademicYearbookProps> = ({ content }) => {
+  const allRecords = useMemo(() => {
+    const rawRecords = content?.records && content.records.length > 0 ? content.records : academicRecords;
+    return rawRecords.map((r, i) => {
+      const fallback = academicRecords[i] || academicRecords[0];
+      return {
+        ...fallback,
+        ...r,
+        overview: r.overview !== undefined ? r.overview : fallback.overview,
+        academicFocus: r.academicFocus !== undefined ? r.academicFocus : fallback.academicFocus,
+        journalTitle: r.journalTitle !== undefined ? r.journalTitle : (fallback.journalTitle || 'SEMESTER HIGHLIGHTS'),
+        journalDescription: r.journalDescription !== undefined ? r.journalDescription : (r.notes || fallback.journalDescription || fallback.notes),
+        highlights: (r.highlights && r.highlights.length > 0) ? r.highlights : fallback.highlights,
+      };
+    });
+  }, [content?.records]);
+
+  const records = allRecords.filter((r) => r.visible !== false);
   const [activeSemIndex, setActiveSemIndex] = useState(0);
   const [isTransitioning, setIsTransitioning] = useState(false);
 
-  const totalSemesters = academicRecords.length;
-  const currentRecord: SemesterRecord = academicRecords[activeSemIndex];
+  const totalSemesters = records.length;
+  const currentRecord: SemesterRecord = records[activeSemIndex] || records[0] || academicRecords[0];
 
   const handleSelectSemester = useCallback(
     (index: number) => {
@@ -35,6 +57,21 @@ export const AcademicYearbook: React.FC = () => {
     const nextIndex = (activeSemIndex + 1) % totalSemesters;
     handleSelectSemester(nextIndex);
   }, [activeSemIndex, totalSemesters, isTransitioning, handleSelectSemester]);
+
+  const semesterNumber = parseInt(currentRecord.semester, 10) || 1;
+  const leftPageNum = currentRecord.pageNumber?.left || `PAGE 0${semesterNumber * 2 - 1}`;
+  const rightPageNum = currentRecord.pageNumber?.right || `PAGE 0${semesterNumber * 2}`;
+  const semesterTitle = currentRecord.title || currentRecord.semesterRoman || `SEMESTER ${currentRecord.semester}`;
+  const universityName = currentRecord.university || currentRecord.institution || content?.institution || 'ADAMAS UNIVERSITY';
+  const programName = currentRecord.program || currentRecord.degree || content?.degree || 'B.TECH COMPUTER SCIENCE & ENGINEERING';
+  const journalHeading = currentRecord.journalTitle || 'SEMESTER HIGHLIGHTS';
+  const journalBody = currentRecord.journalDescription || currentRecord.notes || '';
+  const rawCredits = currentRecord.credits !== undefined && currentRecord.credits !== null ? String(currentRecord.credits).trim() : (currentRecord.creditsEarned ? String(currentRecord.creditsEarned).trim() : '');
+  const creditsVal = rawCredits !== '' && rawCredits !== '—' && rawCredits !== '-' ? rawCredits : '—';
+
+  const calculatedCGPA = useMemo(() => {
+    return calculateCumulativeCGPA(allRecords, currentRecord.semester || (activeSemIndex + 1));
+  }, [allRecords, currentRecord.semester, activeSemIndex]);
 
   return (
     <section
@@ -75,7 +112,7 @@ export const AcademicYearbook: React.FC = () => {
             <div className="flex items-center gap-2.5">
               <span className="w-2 h-2 rounded-full bg-crimson inline-block animate-pulse shadow-[0_0_8px_rgba(215,25,47,0.9)]" />
               <span className="text-xs sm:text-sm font-bold tracking-[0.25em] text-white uppercase font-sans">
-                ACADEMIC RECORDS
+                {content?.eyebrow || 'ACADEMIC RECORDS'}
               </span>
             </div>
 
@@ -89,20 +126,38 @@ export const AcademicYearbook: React.FC = () => {
             <div className="space-y-2 sm:space-y-3 max-w-2xl">
               <div className="flex items-center gap-2 text-crimson font-mono text-xs sm:text-sm font-bold tracking-widest uppercase">
                 <span className="w-4 h-[1.5px] bg-crimson inline-block" />
-                <span>CHAPTER 02</span>
+                <span>{content?.chapter || 'CHAPTER 02'}</span>
               </div>
 
               <h2 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold uppercase text-white font-editorial tracking-tight leading-[0.95] drop-shadow-[0_2px_14px_rgba(0,0,0,0.8)]">
-                ACADEMIC<br />
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-white via-neutral-100 to-neutral-400">
-                  YEARBOOK
-                </span>
+                {Array.isArray(content?.heading) && content.heading.length > 0 ? (
+                  content.heading.map((line, i) => (
+                    <React.Fragment key={i}>
+                      {i === 1 ? (
+                        <span className="text-transparent bg-clip-text bg-gradient-to-r from-white via-neutral-100 to-neutral-400">
+                          {line}
+                        </span>
+                      ) : (
+                        line
+                      )}
+                      {i < content.heading.length - 1 && <br />}
+                    </React.Fragment>
+                  ))
+                ) : (
+                  <>
+                    ACADEMIC<br />
+                    <span className="text-transparent bg-clip-text bg-gradient-to-r from-white via-neutral-100 to-neutral-400">
+                      YEARBOOK
+                    </span>
+                  </>
+                )}
               </h2>
             </div>
 
             <div className="max-w-md lg:pb-2">
               <p className="text-sm sm:text-base text-[#ded8cf] font-sans leading-relaxed font-light">
-                A collection of my semester-wise performance, key subjects, and memorable milestones throughout my undergraduate journey.
+                {content?.subheading ||
+                  'An editorial semester-by-semester academic chronicle documenting undergraduate milestones, performance, and key learnings.'}
               </p>
             </div>
           </div>
@@ -134,29 +189,29 @@ export const AcademicYearbook: React.FC = () => {
           {/* Connected Two-Page Grid (Side-by-side on Desktop, Vertically Stacked on Mobile) */}
           <div
             className={cn(
-              'flex flex-col lg:grid lg:grid-cols-2 relative z-10 transition-opacity duration-200 min-h-[600px] lg:min-h-[660px] h-auto',
+              'flex flex-col lg:grid lg:grid-cols-2 relative z-10 transition-opacity duration-200 min-h-[560px] lg:min-h-[620px] h-auto',
               isTransitioning ? 'opacity-0 scale-[0.995]' : 'opacity-100 scale-100'
             )}
           >
 
             {/* =========================================================================
-                LEFT PAGE: SEMESTER PERFORMANCE & SUBJECT RECORDS
+                LEFT PAGE: SEMESTER RECORD / ACADEMIC SNAPSHOT & EDITORIAL OVERVIEW
                 ========================================================================= */}
-            <div className="p-6 sm:p-8 lg:p-10 flex flex-col justify-between border-b lg:border-b-0 lg:border-r border-white/[0.10] relative h-full">
+            <div className="p-6 sm:p-8 lg:p-10 flex flex-col justify-between border-b lg:border-b-0 lg:border-r border-white/[0.10] relative h-full gap-6">
               {/* Left Page Corner Watermark */}
-              <div className="text-xs font-mono text-neutral-400 uppercase tracking-widest pointer-events-none select-none pb-2 font-medium">
-                ACADEMIC SPREAD • {currentRecord.pageNumber.left}
+              <div className="text-xs font-mono text-neutral-400 uppercase tracking-widest pointer-events-none select-none pb-1 font-medium">
+                ACADEMIC SPREAD • {leftPageNum}
               </div>
 
               {/* Top Header Information & Content */}
-              <div className="space-y-6 flex-1">
+              <div className="space-y-5 sm:space-y-6 flex-1">
                 <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 pt-1">
                   <div>
                     <span className="text-xs sm:text-sm font-mono font-bold text-crimson uppercase tracking-[0.2em] block mb-1.5">
                       {currentRecord.academicYear} • {currentRecord.term}
                     </span>
                     <h3 className="text-3xl sm:text-4xl md:text-5xl lg:text-[2.85rem] font-bold uppercase text-white font-editorial tracking-tight leading-[1.05] drop-shadow-[0_2px_12px_rgba(0,0,0,0.8)]">
-                      {currentRecord.semesterRoman}
+                      {semesterTitle}
                     </h3>
                   </div>
 
@@ -184,19 +239,19 @@ export const AcademicYearbook: React.FC = () => {
 
                 {/* Institution & Degree Meta */}
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-sm sm:text-[15px] font-sans border-b border-white/[0.10] pb-4">
-                  <span className="text-white font-bold tracking-wide uppercase font-poster">{currentRecord.institution}</span>
+                  <span className="text-white font-bold tracking-wide uppercase font-poster">{universityName}</span>
                   <span className="text-crimson font-bold">•</span>
-                  <span className="text-[#ede7e1] font-medium">{currentRecord.degree}</span>
+                  <span className="text-[#ede7e1] font-medium">{programName}</span>
                 </div>
 
-                {/* Performance Metric Block (CGPA / SGPA Display) */}
+                {/* 3 Performance Metric Cards: SGPA / CGPA / Credits */}
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3.5">
                   <div className="p-4 rounded-2xl bg-white/[0.04] border border-white/[0.12] backdrop-blur-md flex flex-col justify-between">
                     <span className="text-xs font-mono text-neutral-300 uppercase tracking-wider font-semibold block">
                       SEMESTER SGPA
                     </span>
                     <span className="text-3xl sm:text-4xl font-bold font-editorial text-white tracking-tight my-1.5 block">
-                      {currentRecord.sgpa}
+                      {currentRecord.sgpa || '—'}
                     </span>
                     <span className="text-xs font-mono text-neutral-400 uppercase tracking-wider block font-medium">
                       {currentRecord.status === 'COMPLETED' ? 'OFFICIAL GRADE' : 'TERM ACTIVE'}
@@ -208,7 +263,7 @@ export const AcademicYearbook: React.FC = () => {
                       CUMULATIVE CGPA
                     </span>
                     <span className="text-3xl sm:text-4xl font-bold font-editorial text-crimson tracking-tight my-1.5 block drop-shadow-[0_0_12px_rgba(215,25,47,0.5)]">
-                      {currentRecord.cgpa}
+                      {calculatedCGPA}
                     </span>
                     <span className="text-xs font-mono text-neutral-400 uppercase tracking-wider block font-medium">
                       {currentRecord.status === 'COMPLETED' ? 'RECORD VERIFIED' : 'PENDING EVALUATION'}
@@ -220,7 +275,7 @@ export const AcademicYearbook: React.FC = () => {
                       ACADEMIC CREDITS
                     </span>
                     <span className="text-3xl sm:text-4xl font-bold font-editorial text-neutral-100 tracking-tight my-1.5 block">
-                      {currentRecord.creditsEarned}
+                      {creditsVal}
                     </span>
                     <span className="text-xs font-mono text-neutral-400 uppercase tracking-wider block font-medium">
                       EARNED UNITS
@@ -228,117 +283,105 @@ export const AcademicYearbook: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Subject Records Table */}
-                <div className="pt-2">
-                  <div className="flex items-center justify-between pb-2.5 border-b border-white/[0.10]">
-                    <span className="text-xs sm:text-sm font-mono uppercase tracking-[0.2em] text-[#ede7e1] font-bold flex items-center gap-2">
-                      <BookOpen size={15} className="text-crimson" />
-                      <span>CURRICULUM & SUBJECTS</span>
+                {/* Editorial Overview Section */}
+                {currentRecord.overview && (
+                  <div className="space-y-2 pt-2">
+                    <div className="flex items-center gap-2 pb-1.5 border-b border-white/[0.08]">
+                      <Sparkles size={14} className="text-crimson" />
+                      <span className="text-xs sm:text-sm font-mono uppercase tracking-[0.2em] text-[#ede7e1] font-bold">
+                        SEMESTER OVERVIEW
+                      </span>
+                    </div>
+                    <p className="text-sm sm:text-[15px] lg:text-base text-[#ded8cf] font-sans leading-relaxed font-light break-words">
+                      {currentRecord.overview}
+                    </p>
+                  </div>
+                )}
+
+                {/* Academic Focus Statement */}
+                {currentRecord.academicFocus && (
+                  <div className="p-3.5 sm:p-4 rounded-xl bg-white/[0.03] border border-white/[0.08] backdrop-blur-md flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+                    <span className="text-[10.5px] font-mono text-crimson font-bold uppercase tracking-wider shrink-0 bg-crimson/15 px-2.5 py-1 rounded border border-crimson/30 self-start sm:self-center">
+                      ACADEMIC FOCUS
                     </span>
-                    <span className="text-xs font-mono text-neutral-400 uppercase tracking-wider font-medium">
-                      GRADE / STATUS
+                    <span className="text-xs sm:text-sm text-white font-sans font-medium break-words leading-relaxed">
+                      {currentRecord.academicFocus}
                     </span>
                   </div>
-
-                  <div className="divide-y divide-white/[0.06] pt-1">
-                    {currentRecord.subjects.map((subject, idx) => (
-                      <div
-                        key={idx}
-                        className="py-3.5 sm:py-4 flex items-start sm:items-center justify-between gap-3 text-sm sm:text-[15px] lg:text-base font-sans group hover:bg-white/[0.03] px-2 rounded-lg transition-colors"
-                      >
-                        <div className="flex items-start sm:items-center gap-3 min-w-0 flex-1">
-                          <span className="text-xs sm:text-[13px] font-mono text-crimson font-bold shrink-0 bg-crimson/15 px-2 py-0.5 rounded border border-crimson/30 mt-0.5 sm:mt-0 shadow-[0_0_6px_rgba(215,25,47,0.2)]">
-                            {subject.code}
-                          </span>
-                          <span className="text-[#f3eee8] font-medium break-words leading-snug group-hover:text-white transition-colors">
-                            {subject.name}
-                          </span>
-                        </div>
-
-                        <div className="flex items-center gap-3 shrink-0 font-mono text-xs sm:text-sm pt-0.5 sm:pt-0">
-                          <span className="text-neutral-300 font-medium text-xs sm:text-sm hidden sm:inline-block">
-                            {subject.credits} CR
-                          </span>
-                          <span
-                            className={cn(
-                              'px-2.5 py-1 rounded-md text-xs sm:text-[13px] font-bold font-mono text-center min-w-[85px] border',
-                              subject.grade !== '—'
-                                ? 'bg-white/10 text-white border-white/25'
-                                : 'text-neutral-300 bg-white/[0.05] border-white/[0.12]'
-                            )}
-                          >
-                            {subject.grade !== '—' ? subject.grade : subject.status}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+                )}
               </div>
 
               {/* Bottom Left Page Footer */}
-              <div className="pt-6 mt-6 border-t border-white/[0.10] flex items-center justify-between text-xs sm:text-[13px] font-mono text-neutral-400 uppercase tracking-wider shrink-0 font-medium">
+              <div className="pt-6 mt-auto border-t border-white/[0.10] flex items-center justify-between text-xs sm:text-[13px] font-mono text-neutral-400 uppercase tracking-wider shrink-0 font-medium">
                 <span>UNDERGRADUATE RECORD</span>
-                <span className="text-neutral-300 font-semibold">{currentRecord.pageNumber.left}</span>
+                <span className="text-neutral-300 font-semibold">{leftPageNum}</span>
               </div>
             </div>
 
             {/* =========================================================================
-                RIGHT PAGE: SEMESTER HIGHLIGHTS & ARCHIVE NOTES
+                RIGHT PAGE: JOURNAL & SEMESTER HIGHLIGHTS
                 ========================================================================= */}
-            <div className="p-6 sm:p-8 lg:p-10 flex flex-col justify-between relative bg-gradient-to-br from-transparent to-white/[0.015] h-full">
+            <div className="p-6 sm:p-8 lg:p-10 flex flex-col justify-between relative bg-gradient-to-br from-transparent to-white/[0.015] h-full gap-6">
               {/* Right Page Corner Watermark */}
-              <div className="text-xs font-mono text-neutral-400 uppercase tracking-widest pointer-events-none select-none pb-2 text-right font-medium">
-                {currentRecord.pageNumber.right} • SEMESTER ARCHIVE
+              <div className="text-xs font-mono text-neutral-400 uppercase tracking-widest pointer-events-none select-none pb-1 text-right font-medium">
+                {rightPageNum} • SEMESTER ARCHIVE
               </div>
 
               {/* Top Header Information & Content */}
-              <div className="space-y-6 flex-1">
+              <div className="space-y-5 sm:space-y-6 flex-1">
                 <div className="pt-1">
                   <span className="text-xs sm:text-sm font-mono font-bold text-crimson uppercase tracking-[0.2em] block mb-1.5">
                     JOURNAL & MILESTONES
                   </span>
                   <h3 className="text-3xl sm:text-4xl md:text-5xl lg:text-[2.85rem] font-bold uppercase text-white font-editorial tracking-tight leading-[1.05] drop-shadow-[0_2px_12px_rgba(0,0,0,0.8)]">
-                    SEMESTER HIGHLIGHTS
+                    {journalHeading}
                   </h3>
                 </div>
 
-                {/* Editorial Notes / Focus Statement */}
-                <div className="p-4.5 sm:p-5 rounded-2xl bg-white/[0.04] border border-white/[0.12] backdrop-blur-md relative overflow-hidden">
-                  <div className="absolute top-0 left-0 bottom-0 w-1.5 bg-crimson shadow-[0_0_10px_rgba(215,25,47,0.8)]" />
-                  <p className="text-sm sm:text-base md:text-[1.05rem] text-[#f5f1eb] font-sans leading-relaxed font-light italic pl-2.5">
-                    &ldquo;{currentRecord.notes}&rdquo;
-                  </p>
-                </div>
-
-                {/* Highlight Cards */}
-                <div className="space-y-3 pt-1">
-                  <span className="text-xs sm:text-sm font-mono uppercase tracking-[0.2em] text-[#ede7e1] font-bold flex items-center gap-2 pb-2.5 border-b border-white/[0.10]">
-                    <Sparkles size={15} className="text-crimson" />
-                    <span>KEY LEARNINGS & ARCHIVES</span>
-                  </span>
-
-                  <div className="space-y-3.5">
-                    {currentRecord.highlights.map((highlight, idx) => (
-                      <div
-                        key={idx}
-                        className="p-4 sm:p-4.5 rounded-2xl bg-white/[0.035] hover:bg-white/[0.06] border border-white/[0.10] hover:border-white/[0.18] transition-all space-y-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]"
-                      >
-                        <div className="flex items-start sm:items-center justify-between gap-2.5 flex-wrap">
-                          <h4 className="text-sm sm:text-base lg:text-[1.05rem] font-bold text-white uppercase font-poster tracking-wide break-words">
-                            {highlight.title}
-                          </h4>
-                          <span className="px-2.5 py-0.5 rounded-full bg-crimson/20 border border-crimson/40 text-xs font-mono font-bold text-crimson uppercase tracking-wider shrink-0 shadow-[0_0_8px_rgba(215,25,47,0.3)]">
-                            {highlight.tag}
-                          </span>
-                        </div>
-                        <p className="text-sm sm:text-[15px] lg:text-base text-[#ded8cf] font-sans leading-relaxed font-light break-words">
-                          {highlight.description}
-                        </p>
-                      </div>
-                    ))}
+                {/* Editorial Notes / Journal Description Quote */}
+                {journalBody && (
+                  <div className="p-4.5 sm:p-5 rounded-2xl bg-white/[0.04] border border-white/[0.12] backdrop-blur-md relative overflow-hidden">
+                    <div className="absolute top-0 left-0 bottom-0 w-1.5 bg-crimson shadow-[0_0_10px_rgba(215,25,47,0.8)]" />
+                    <p className="text-sm sm:text-base md:text-[1.05rem] text-[#f5f1eb] font-sans leading-relaxed font-light italic pl-2.5">
+                      &ldquo;{journalBody}&rdquo;
+                    </p>
                   </div>
-                </div>
+                )}
+
+                {/* Highlight Cards (Editorial Blocks) */}
+                {currentRecord.highlights && currentRecord.highlights.length > 0 && (
+                  <div className="space-y-3 pt-1">
+                    <span className="text-xs sm:text-sm font-mono uppercase tracking-[0.2em] text-[#ede7e1] font-bold flex items-center gap-2 pb-2.5 border-b border-white/[0.10]">
+                      <Compass size={15} className="text-crimson" />
+                      <span>KEY LEARNINGS & ARCHIVES</span>
+                    </span>
+
+                    <div className="space-y-3.5">
+                      {currentRecord.highlights.map((highlight, idx) => (
+                        <div
+                          key={highlight.id || highlight.title || idx}
+                          className="p-4 sm:p-4.5 rounded-2xl bg-white/[0.035] hover:bg-white/[0.06] border border-white/[0.10] hover:border-white/[0.18] transition-all space-y-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]"
+                        >
+                          <div className="flex items-start sm:items-center justify-between gap-2.5 flex-wrap">
+                            <h4 className="text-sm sm:text-base lg:text-[1.05rem] font-bold text-white uppercase font-poster tracking-wide break-words">
+                              {highlight.title}
+                            </h4>
+                            {(highlight.label || highlight.tag) && (
+                              <span className="px-2.5 py-0.5 rounded-full bg-crimson/20 border border-crimson/40 text-xs font-mono font-bold text-crimson uppercase tracking-wider shrink-0 shadow-[0_0_8px_rgba(215,25,47,0.3)]">
+                                {highlight.label || highlight.tag}
+                              </span>
+                            )}
+                          </div>
+                          {highlight.description && (
+                            <p className="text-sm sm:text-[15px] lg:text-base text-[#ded8cf] font-sans leading-relaxed font-light break-words">
+                              {highlight.description}
+                            </p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {/* Academic Certification & Seal */}
                 <div className="pt-2">
@@ -349,10 +392,10 @@ export const AcademicYearbook: React.FC = () => {
                       </div>
                       <div className="flex flex-col min-w-0">
                         <span className="text-xs sm:text-sm font-bold text-white font-poster uppercase tracking-wider break-words">
-                          ADAMAS UNIVERSITY CSE ARCHIVE
+                          {universityName} CSE ARCHIVE
                         </span>
                         <span className="text-xs sm:text-[13px] font-mono text-neutral-300">
-                          COHORT 2024 — 2028 • B.TECH PROGRAM
+                          COHORT 2024 — 2028 • {programName}
                         </span>
                       </div>
                     </div>
@@ -365,9 +408,9 @@ export const AcademicYearbook: React.FC = () => {
               </div>
 
               {/* Bottom Right Page Footer */}
-              <div className="pt-6 mt-6 border-t border-white/[0.10] flex items-center justify-between text-xs sm:text-[13px] font-mono text-neutral-400 uppercase tracking-wider shrink-0 font-medium">
-                <span>ADAMAS UNIVERSITY</span>
-                <span className="text-neutral-300 font-semibold">{currentRecord.pageNumber.right}</span>
+              <div className="pt-6 mt-auto border-t border-white/[0.10] flex items-center justify-between text-xs sm:text-[13px] font-mono text-neutral-400 uppercase tracking-wider shrink-0 font-medium">
+                <span>{universityName}</span>
+                <span className="text-neutral-300 font-semibold">{rightPageNum}</span>
               </div>
             </div>
 
@@ -395,11 +438,11 @@ export const AcademicYearbook: React.FC = () => {
 
             {/* Semester Buttons (SEM 01 ... SEM 08) */}
             <div className="flex items-center gap-1 sm:gap-1.5 px-1">
-              {academicRecords.map((record, idx) => {
+              {records.map((record, idx) => {
                 const isActive = idx === activeSemIndex;
                 return (
                   <button
-                    key={record.id}
+                    key={record.id || idx}
                     type="button"
                     onClick={() => handleSelectSemester(idx)}
                     disabled={isTransitioning}

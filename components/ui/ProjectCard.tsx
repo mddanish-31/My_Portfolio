@@ -2,6 +2,7 @@ import React from 'react';
 import Image from 'next/image';
 import { ExternalLink, Github } from 'lucide-react';
 import { Project } from '@/data/projects';
+import { resolveMediaUrl } from '@/lib/cms/media';
 import { cn } from '@/lib/utils';
 
 interface ProjectCardProps {
@@ -10,6 +11,8 @@ interface ProjectCardProps {
 }
 
 export const ProjectCard: React.FC<ProjectCardProps> = ({ project, className }) => {
+  const imageUrl = resolveMediaUrl(project.image, '/images/projects/saathi.png');
+
   return (
     <div
       className={cn(
@@ -30,7 +33,7 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ project, className }) 
       {/* Image Preview */}
       <div className="relative aspect-video w-full overflow-hidden bg-black/50">
         <Image
-          src={project.image}
+          src={imageUrl}
           alt={project.title}
           fill
           priority
@@ -49,7 +52,7 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ project, className }) 
           <p className="text-[11px] font-semibold text-crimson uppercase tracking-wider mb-2">
             {project.subtitle}
           </p>
-          <p className="text-xs text-neutral-400 leading-relaxed mb-4 line-clamp-2">
+          <p className="text-xs text-neutral-400 leading-relaxed mb-4">
             {project.description}
           </p>
         </div>

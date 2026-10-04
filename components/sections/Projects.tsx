@@ -4,9 +4,11 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import Image from 'next/image';
 import {
   projectsData,
-  projectDomains,
+  normalizeProject,
   ProjectItem,
 } from '@/data/projects';
+import type { ProjectsContent } from '@/lib/cms/types';
+import { resolveMediaUrl } from '@/lib/cms/media';
 import { cn } from '@/lib/utils';
 import {
   ArrowRight,
@@ -16,19 +18,44 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
-  Layers,
-  Sparkles,
   Maximize2,
   CheckCircle2,
-  Cpu,
-  Globe,
-  Code2,
 } from 'lucide-react';
 
 // =========================================================================
 // MAIN PROJECTS & FRAMEWORKS COMPONENT (ART-DIRECTED EXHIBITION)
 // =========================================================================
-export const Projects: React.FC = () => {
+export interface ProjectsProps {
+  content?: ProjectsContent;
+}
+
+export const Projects: React.FC<ProjectsProps> = ({ content }) => {
+  // 1. Canonical source of truth: prioritize CMS content with fallback to compiled seed data
+  const rawList = content?.projects && content.projects.length > 0 ? content.projects : projectsData;
+
+  const normalizedProjects: ProjectItem[] = useMemo(() => {
+    return rawList.map((p, idx) => normalizeProject(p, idx));
+  }, [rawList]);
+
+  // Filter only visible projects and sort by canonical order
+  const visibleProjects: ProjectItem[] = useMemo(() => {
+    return normalizedProjects
+      .filter((p) => p.visible !== false)
+      .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+  }, [normalizedProjects]);
+
+  // Dynamically derive filter domain pills from visible projects
+  const availableDomains = useMemo(() => {
+    const set = new Set<string>();
+    visibleProjects.forEach((p) => {
+      const d = p.domain || p.category;
+      if (d && d.trim()) {
+        set.add(d.trim());
+      }
+    });
+    return ['ALL', ...Array.from(set)];
+  }, [visibleProjects]);
+
   const [selectedDomain, setSelectedDomain] = useState<string>('ALL');
   const [currentIndex, setCurrentIndex] = useState<number>(0);
   const [activeModalProject, setActiveModalProject] = useState<ProjectItem | null>(null);
@@ -46,29 +73,39 @@ export const Projects: React.FC = () => {
 
   // Filtered projects based on selected domain
   const filteredProjects = useMemo(() => {
-    if (selectedDomain === 'ALL') return projectsData;
-    return projectsData.filter((p) => p.domain === selectedDomain);
-  }, [selectedDomain]);
+    if (selectedDomain === 'ALL') return visibleProjects;
+    const target = selectedDomain.toLowerCase();
+    return visibleProjects.filter((p) => {
+      const d = (p.domain || '').toLowerCase();
+      const c = (p.category || '').toLowerCase();
+      return d === target || c === target || d.includes(target) || c.includes(target);
+    });
+  }, [visibleProjects, selectedDomain]);
 
   // Ensure currentIndex stays within bounds of filtered list
   const activeProject: ProjectItem = useMemo(() => {
-    return filteredProjects[currentIndex] || filteredProjects[0] || projectsData[0];
-  }, [filteredProjects, currentIndex]);
+    if (filteredProjects.length === 0) {
+      return visibleProjects[0] || normalizeProject({}, 0);
+    }
+    return filteredProjects[currentIndex] || filteredProjects[0];
+  }, [filteredProjects, currentIndex, visibleProjects]);
 
   // Secondary & Tertiary projects for asymmetric floating depth
   const prevProject: ProjectItem = useMemo(() => {
     const len = filteredProjects.length;
+    if (len <= 1) return activeProject;
     const prevIdx = (currentIndex - 1 + len) % len;
     return filteredProjects[prevIdx];
-  }, [filteredProjects, currentIndex]);
+  }, [filteredProjects, currentIndex, activeProject]);
 
   const nextProject: ProjectItem = useMemo(() => {
     const len = filteredProjects.length;
+    if (len <= 1) return activeProject;
     const nextIdx = (currentIndex + 1) % len;
     return filteredProjects[nextIdx];
-  }, [filteredProjects, currentIndex]);
+  }, [filteredProjects, currentIndex, activeProject]);
 
-  // Navigation handlers with smooth transition and functional state updates (bulletproof against stale closures)
+  // Navigation handlers with smooth transition and functional state updates
   const handleSelectProject = useCallback((index: number) => {
     setIsTransitioning(true);
     setCurrentIndex(index);
@@ -81,6 +118,7 @@ export const Projects: React.FC = () => {
     setIsTransitioning(true);
     setCurrentIndex((prev) => {
       const len = filteredProjects.length;
+      if (len <= 1) return 0;
       return (prev - 1 + len) % len;
     });
     setTimeout(() => {
@@ -92,6 +130,7 @@ export const Projects: React.FC = () => {
     setIsTransitioning(true);
     setCurrentIndex((prev) => {
       const len = filteredProjects.length;
+      if (len <= 1) return 0;
       return (prev + 1) % len;
     });
     setTimeout(() => {
@@ -99,14 +138,17 @@ export const Projects: React.FC = () => {
     }, 250);
   }, [filteredProjects.length]);
 
-  // Open & close modal
-  const openModal = useCallback((project: ProjectItem) => {
-    setActiveModalProject(project);
-    const idx = projectsData.findIndex((p) => p.id === project.id);
-    if (idx !== -1) setCurrentIndex(idx);
-    setLightboxImageIndex(null);
-    document.body.style.overflow = 'hidden';
-  }, []);
+  // Open & close modal (synchronizes with active visible projects list)
+  const openModal = useCallback(
+    (project: ProjectItem) => {
+      setActiveModalProject(project);
+      const idx = visibleProjects.findIndex((p) => p.id === project.id);
+      if (idx !== -1) setCurrentIndex(idx);
+      setLightboxImageIndex(null);
+      document.body.style.overflow = 'hidden';
+    },
+    [visibleProjects]
+  );
 
   const closeModal = useCallback(() => {
     setActiveModalProject(null);
@@ -116,11 +158,11 @@ export const Projects: React.FC = () => {
 
   // Modal Next/Prev navigation with smooth content transition, infinite looping & showcase sync
   const handleModalNext = useCallback(() => {
-    if (!activeModalProject) return;
+    if (!activeModalProject || visibleProjects.length === 0) return;
     setIsModalTransitioning(true);
-    const idx = projectsData.findIndex((p) => p.id === activeModalProject.id);
-    const nextIdx = (idx + 1) % projectsData.length;
-    const nextProj = projectsData[nextIdx];
+    const idx = visibleProjects.findIndex((p) => p.id === activeModalProject.id);
+    const nextIdx = (idx + 1) % visibleProjects.length;
+    const nextProj = visibleProjects[nextIdx];
 
     setActiveModalProject(nextProj);
     setCurrentIndex(nextIdx);
@@ -133,14 +175,14 @@ export const Projects: React.FC = () => {
     setTimeout(() => {
       setIsModalTransitioning(false);
     }, 180);
-  }, [activeModalProject]);
+  }, [activeModalProject, visibleProjects]);
 
   const handleModalPrev = useCallback(() => {
-    if (!activeModalProject) return;
+    if (!activeModalProject || visibleProjects.length === 0) return;
     setIsModalTransitioning(true);
-    const idx = projectsData.findIndex((p) => p.id === activeModalProject.id);
-    const prevIdx = (idx - 1 + projectsData.length) % projectsData.length;
-    const prevProj = projectsData[prevIdx];
+    const idx = visibleProjects.findIndex((p) => p.id === activeModalProject.id);
+    const prevIdx = (idx - 1 + visibleProjects.length) % visibleProjects.length;
+    const prevProj = visibleProjects[prevIdx];
 
     setActiveModalProject(prevProj);
     setCurrentIndex(prevIdx);
@@ -153,7 +195,7 @@ export const Projects: React.FC = () => {
     setTimeout(() => {
       setIsModalTransitioning(false);
     }, 180);
-  }, [activeModalProject]);
+  }, [activeModalProject, visibleProjects]);
 
   // Keyboard navigation
   useEffect(() => {
@@ -175,7 +217,15 @@ export const Projects: React.FC = () => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [activeModalProject, lightboxImageIndex, handleNext, handlePrev, handleModalNext, handleModalPrev, closeModal]);
+  }, [
+    activeModalProject,
+    lightboxImageIndex,
+    handleNext,
+    handlePrev,
+    handleModalNext,
+    handleModalPrev,
+    closeModal,
+  ]);
 
   // Ref for trackpad gesture lock/cooldown (shared across showcase and modal)
   const isGestureLockedRef = useRef<boolean>(false);
@@ -195,7 +245,6 @@ export const Projects: React.FC = () => {
 
       const HORIZONTAL_THRESHOLD = 28; // px
 
-      // ONLY treat as horizontal when horizontal component dominates AND exceeds threshold
       if (absX > absY && absX >= HORIZONTAL_THRESHOLD) {
         e.preventDefault();
 
@@ -203,10 +252,8 @@ export const Projects: React.FC = () => {
         isGestureLockedRef.current = true;
 
         if (deltaX > 0) {
-          // Swipe Left / Scroll Right -> NEXT
           handleNext();
         } else {
-          // Swipe Right / Scroll Left -> PREVIOUS
           handlePrev();
         }
 
@@ -280,7 +327,6 @@ export const Projects: React.FC = () => {
     if (!modalEl) return;
 
     const handleModalWheel = (e: WheelEvent) => {
-      // If lightbox is open, do not switch projects on wheel
       if (lightboxImageIndex !== null) return;
 
       const { deltaX, deltaY } = e;
@@ -289,18 +335,15 @@ export const Projects: React.FC = () => {
 
       const HORIZONTAL_THRESHOLD = 28; // px
 
-      // Only treat as horizontal when horizontal component strictly dominates AND exceeds threshold
       if (absX > absY && absX >= HORIZONTAL_THRESHOLD) {
-        e.preventDefault(); // Prevents horizontal browser history/page shifts
+        e.preventDefault();
 
         if (isGestureLockedRef.current) return;
         isGestureLockedRef.current = true;
 
         if (deltaX > 0) {
-          // Swipe Left / Scroll Right -> NEXT PROJECT
           handleModalNext();
         } else {
-          // Swipe Right / Scroll Left -> PREVIOUS PROJECT
           handleModalPrev();
         }
 
@@ -311,7 +354,6 @@ export const Projects: React.FC = () => {
           isGestureLockedRef.current = false;
         }, 550);
       }
-      // When absY >= absX, do NOT call e.preventDefault() -> vertical case study scrolling is 100% untouched!
     };
 
     let touchStartX = 0;
@@ -368,7 +410,7 @@ export const Projects: React.FC = () => {
     };
   }, [activeModalProject, lightboxImageIndex, handleModalNext, handleModalPrev]);
 
-  // Mouse Parallax Effect (Hardware-accelerated via RAF without React re-renders)
+  // Mouse Parallax Effect
   useEffect(() => {
     const stage = stageRef.current;
     if (!stage) return;
@@ -384,7 +426,7 @@ export const Projects: React.FC = () => {
 
     const handleMouseMove = (e: MouseEvent) => {
       const rect = stage.getBoundingClientRect();
-      const x = (e.clientX - rect.left) / rect.width - 0.5; // -0.5 to 0.5
+      const x = (e.clientX - rect.left) / rect.width - 0.5;
       const y = (e.clientY - rect.top) / rect.height - 0.5;
       targetX = x;
       targetY = y;
@@ -396,7 +438,6 @@ export const Projects: React.FC = () => {
     };
 
     const updateParallax = () => {
-      // Smooth lerp
       currentX += (targetX - currentX) * 0.08;
       currentY += (targetY - currentY) * 0.08;
 
@@ -426,6 +467,13 @@ export const Projects: React.FC = () => {
       cancelAnimationFrame(rafId);
     };
   }, []);
+
+  const chapterText = content?.chapter || 'CHAPTER 04';
+  const eyebrowText = content?.eyebrow || 'SELECTED WORK';
+  const headingLines =
+    content?.heading && content.heading.length > 0
+      ? content.heading
+      : ['PROJECTS &', 'FRAMEWORKS'];
 
   return (
     <section
@@ -459,12 +507,12 @@ export const Projects: React.FC = () => {
             <div className="flex items-center gap-2.5">
               <span className="w-2 h-2 rounded-full bg-crimson inline-block animate-pulse shadow-[0_0_8px_rgba(215,25,47,0.9)]" />
               <span className="text-xs sm:text-sm font-bold tracking-[0.25em] text-white uppercase font-sans">
-                SELECTED WORK
+                {eyebrowText}
               </span>
             </div>
 
             <span className="text-xs sm:text-sm font-mono uppercase tracking-[0.25em] text-neutral-400 font-medium">
-              CHAPTER 04 • CURATED EXHIBITION
+              {chapterText} • CURATED EXHIBITION
             </span>
           </div>
 
@@ -473,21 +521,32 @@ export const Projects: React.FC = () => {
             <div className="space-y-1.5 sm:space-y-2 max-w-2xl">
               <div className="flex items-center gap-2 text-crimson font-mono text-xs sm:text-sm font-bold tracking-widest uppercase">
                 <span className="w-4 h-[1.5px] bg-crimson inline-block" />
-                <span>CHAPTER 04</span>
+                <span>{chapterText}</span>
               </div>
 
               <h2 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold uppercase text-white font-editorial tracking-tight leading-[0.95] drop-shadow-[0_2px_14px_rgba(0,0,0,0.8)]">
-                PROJECTS &<br />
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-white via-neutral-100 to-neutral-400">
-                  FRAMEWORKS
-                </span>
+                {headingLines[0]}
+                {headingLines.length > 1 && (
+                  <>
+                    <br />
+                    <span className="text-transparent bg-clip-text bg-gradient-to-r from-white via-neutral-100 to-neutral-400">
+                      {headingLines.slice(1).join(' ')}
+                    </span>
+                  </>
+                )}
               </h2>
+
+              {content?.subheading && (
+                <p className="text-xs sm:text-sm text-neutral-400 font-light font-sans pt-1">
+                  {content.subheading}
+                </p>
+              )}
             </div>
 
             {/* Domain Filter Pills */}
             <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 lg:pb-1">
-              {projectDomains.map((domain) => {
-                const isActive = selectedDomain === domain;
+              {availableDomains.map((domain) => {
+                const isActive = selectedDomain.toUpperCase() === domain.toUpperCase();
                 return (
                   <button
                     key={domain}
@@ -545,7 +604,8 @@ export const Projects: React.FC = () => {
               </button>
 
               <span className="text-xs sm:text-sm font-mono text-neutral-400 font-semibold px-1">
-                {activeProject.number} <span className="text-neutral-600">/</span>{' '}
+                {activeProject.number || (currentIndex + 1 < 10 ? `0${currentIndex + 1}` : `${currentIndex + 1}`)}{' '}
+                <span className="text-neutral-600">/</span>{' '}
                 {filteredProjects.length < 10 ? `0${filteredProjects.length}` : filteredProjects.length}
               </span>
 
@@ -567,7 +627,9 @@ export const Projects: React.FC = () => {
               <button
                 ref={secondaryCardRef}
                 type="button"
-                onClick={() => handleSelectProject((currentIndex - 1 + filteredProjects.length) % filteredProjects.length)}
+                onClick={() =>
+                  handleSelectProject((currentIndex - 1 + filteredProjects.length) % filteredProjects.length)
+                }
                 className="hidden xl:block absolute left-2 top-4 w-[240px] rounded-xl bg-[linear-gradient(135deg,rgba(20,8,12,0.85)_0%,rgba(10,3,6,0.92)_100%)] backdrop-blur-xl border border-white/[0.12] p-3 text-left transition-all duration-300 hover:border-crimson/50 hover:scale-105 z-10 opacity-60 hover:opacity-100 group shadow-2xl cursor-pointer"
                 title={`Previous: ${prevProject.title}`}
               >
@@ -577,18 +639,23 @@ export const Projects: React.FC = () => {
                 </div>
                 <div className="relative w-full h-24 rounded-lg overflow-hidden my-2 bg-black/40 border border-white/5">
                   <Image
-                    src={prevProject.image}
+                    src={resolveMediaUrl(prevProject.coverImage || prevProject.image, '/images/projects/technexa.jpg')}
                     alt={prevProject.title}
                     fill
                     className="object-cover group-hover:scale-105 transition-transform duration-300 opacity-75 group-hover:opacity-100"
                     sizes="240px"
+                    onError={(e) => {
+                      (e.currentTarget as HTMLImageElement).src = '/images/projects/technexa.jpg';
+                    }}
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
                 </div>
-                <h4 className="text-xs font-bold font-editorial uppercase text-white truncate group-hover:text-crimson transition-colors">
+                <h4 className="text-xs font-bold font-editorial uppercase text-white break-words leading-tight group-hover:text-crimson transition-colors">
                   {prevProject.title}
                 </h4>
-                <p className="text-[10px] text-neutral-400 font-sans truncate">{prevProject.subtitle}</p>
+                <p className="text-[10px] text-neutral-400 font-sans break-words leading-snug">
+                  {prevProject.subtitle}
+                </p>
               </button>
             )}
 
@@ -619,12 +686,15 @@ export const Projects: React.FC = () => {
                   aria-label={`View Case Study for ${activeProject.title}`}
                 >
                   <Image
-                    src={activeProject.image}
+                    src={resolveMediaUrl(activeProject.coverImage || activeProject.image, '/images/projects/technexa.jpg')}
                     alt={activeProject.title}
                     fill
                     priority
                     className="object-cover object-center group-hover/img:scale-105 transition-transform duration-500"
                     sizes="(max-width: 1024px) 100vw, 60vw"
+                    onError={(e) => {
+                      (e.currentTarget as HTMLImageElement).src = '/images/projects/technexa.jpg';
+                    }}
                   />
 
                   {/* Dark Gradient Overlays & Vignette */}
@@ -634,7 +704,7 @@ export const Projects: React.FC = () => {
                   {/* Floating Badges over Image */}
                   <div className="absolute top-3 sm:top-4 left-3 sm:left-4 z-20 flex flex-wrap items-center gap-2">
                     <span className="px-2.5 sm:px-3 py-1 rounded-full text-[10px] sm:text-[11px] font-mono font-bold uppercase tracking-wider bg-black/70 backdrop-blur-md border border-white/20 text-white shadow-lg">
-                      PROJECT {activeProject.number}
+                      PROJECT {activeProject.number || (currentIndex + 1 < 10 ? `0${currentIndex + 1}` : `${currentIndex + 1}`)}
                     </span>
                     <span className="px-2.5 sm:px-3 py-1 rounded-full text-[10px] sm:text-[11px] font-mono font-bold uppercase tracking-wider bg-crimson/30 backdrop-blur-md border border-crimson/60 text-white shadow-[0_0_10px_rgba(215,25,47,0.4)]">
                       {activeProject.year}
@@ -657,7 +727,7 @@ export const Projects: React.FC = () => {
                         {activeProject.category}
                       </span>
                       <span className="text-[11px] font-mono text-neutral-400">
-                        {activeProject.domain}
+                        {activeProject.domain || activeProject.category}
                       </span>
                     </div>
 
@@ -671,16 +741,23 @@ export const Projects: React.FC = () => {
                       </p>
                     </div>
 
-                    {/* Factual Description */}
-                    <p className="text-xs sm:text-[13px] text-[#ded8cf] leading-relaxed font-light line-clamp-3">
-                      {activeProject.description}
+                    {/* Factual Short Description */}
+                    <p className="text-xs sm:text-[13px] text-[#ded8cf] leading-relaxed font-light font-sans">
+                      {activeProject.shortDescription || activeProject.description}
                     </p>
 
-                    {/* Tech Stack Pills */}
+                    {/* Tech Stack Pills (Displaying up to 5 on compact card) */}
                     <div className="space-y-1.5 pt-1">
-                      <span className="text-[10px] font-mono font-bold tracking-[0.2em] text-neutral-400 uppercase block">
-                        CORE STACK
-                      </span>
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-mono font-bold tracking-[0.2em] text-neutral-400 uppercase block">
+                          CORE STACK
+                        </span>
+                        {activeProject.technologies.length > 5 && (
+                          <span className="text-[10px] font-mono text-neutral-500">
+                            +{activeProject.technologies.length - 5} MORE
+                          </span>
+                        )}
+                      </div>
                       <div className="flex flex-wrap gap-1.5">
                         {activeProject.technologies.slice(0, 5).map((tech) => (
                           <span
@@ -718,9 +795,9 @@ export const Projects: React.FC = () => {
                       </a>
                     )}
 
-                    {activeProject.liveUrl && (
+                    {(activeProject.liveDemoUrl || activeProject.liveUrl) && (
                       <a
-                        href={activeProject.liveUrl}
+                        href={(activeProject.liveDemoUrl || activeProject.liveUrl) as string}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="p-2.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/12 text-neutral-300 hover:text-white transition-colors"
@@ -740,7 +817,9 @@ export const Projects: React.FC = () => {
               <button
                 ref={tertiaryCardRef}
                 type="button"
-                onClick={() => handleSelectProject((currentIndex + 1) % filteredProjects.length)}
+                onClick={() =>
+                  handleSelectProject((currentIndex + 1) % filteredProjects.length)
+                }
                 className="hidden xl:block absolute right-2 bottom-4 w-[240px] rounded-xl bg-[linear-gradient(135deg,rgba(20,8,12,0.85)_0%,rgba(10,3,6,0.92)_100%)] backdrop-blur-xl border border-white/[0.12] p-3 text-left transition-all duration-300 hover:border-crimson/50 hover:scale-105 z-10 opacity-60 hover:opacity-100 group shadow-2xl cursor-pointer"
                 title={`Next: ${nextProject.title}`}
               >
@@ -750,18 +829,23 @@ export const Projects: React.FC = () => {
                 </div>
                 <div className="relative w-full h-24 rounded-lg overflow-hidden my-2 bg-black/40 border border-white/5">
                   <Image
-                    src={nextProject.image}
+                    src={resolveMediaUrl(nextProject.coverImage || nextProject.image, '/images/projects/technexa.jpg')}
                     alt={nextProject.title}
                     fill
                     className="object-cover group-hover:scale-105 transition-transform duration-300 opacity-75 group-hover:opacity-100"
                     sizes="240px"
+                    onError={(e) => {
+                      (e.currentTarget as HTMLImageElement).src = '/images/projects/technexa.jpg';
+                    }}
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
                 </div>
-                <h4 className="text-xs font-bold font-editorial uppercase text-white truncate group-hover:text-crimson transition-colors">
+                <h4 className="text-xs font-bold font-editorial uppercase text-white break-words leading-tight group-hover:text-crimson transition-colors">
                   {nextProject.title}
                 </h4>
-                <p className="text-[10px] text-neutral-400 font-sans truncate">{nextProject.subtitle}</p>
+                <p className="text-[10px] text-neutral-400 font-sans break-words leading-snug">
+                  {nextProject.subtitle}
+                </p>
               </button>
             )}
           </div>
@@ -784,7 +868,7 @@ export const Projects: React.FC = () => {
                     )}
                   >
                     <span className={isSelected ? 'text-crimson' : 'text-neutral-500'}>
-                      {p.number}
+                      {p.number || (idx + 1 < 10 ? `0${idx + 1}` : `${idx + 1}`)}
                     </span>
                     <span className="truncate max-w-[120px] sm:max-w-none">{p.title}</span>
                   </button>
@@ -839,7 +923,7 @@ export const Projects: React.FC = () => {
                     <ChevronLeft size={16} />
                   </button>
                   <span className="text-[11px] font-mono text-neutral-400 px-2">
-                    {activeModalProject.number} / {projectsData.length < 10 ? `0${projectsData.length}` : projectsData.length}
+                    {activeModalProject.number} / {visibleProjects.length < 10 ? `0${visibleProjects.length}` : visibleProjects.length}
                   </span>
                   <button
                     type="button"
@@ -901,7 +985,7 @@ export const Projects: React.FC = () => {
                   </span>
                 </div>
                 {activeModalProject.stats.map((st, i) => (
-                  <div key={i} className="space-y-1">
+                  <div key={st.label || i} className="space-y-1">
                     <span className="text-[10.5px] font-mono text-neutral-400 uppercase tracking-widest block">
                       {st.label}
                     </span>
@@ -916,20 +1000,23 @@ export const Projects: React.FC = () => {
             {/* Cinematic Hero Screenshot Showcase */}
             <div className="relative w-full aspect-video sm:aspect-[21/9] rounded-2xl sm:rounded-3xl overflow-hidden border border-white/[0.16] shadow-[0_25px_60px_-15px_rgba(0,0,0,0.95),0_0_50px_rgba(215,25,47,0.15)] bg-black/60">
               <Image
-                src={activeModalProject.image}
+                src={resolveMediaUrl(activeModalProject.coverImage || activeModalProject.image, '/images/projects/technexa.jpg')}
                 alt={activeModalProject.title}
                 fill
                 priority
                 className="object-cover object-center"
                 sizes="(max-width: 1280px) 100vw, 1200px"
+                onError={(e) => {
+                  (e.currentTarget as HTMLImageElement).src = '/images/projects/technexa.jpg';
+                }}
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none" />
 
               {/* Action Links Bar Over Hero Image */}
               <div className="absolute bottom-4 sm:bottom-6 right-4 sm:right-6 flex flex-wrap items-center gap-3">
-                {activeModalProject.liveUrl && (
+                {(activeModalProject.liveDemoUrl || activeModalProject.liveUrl) && (
                   <a
-                    href={activeModalProject.liveUrl}
+                    href={(activeModalProject.liveDemoUrl || activeModalProject.liveUrl) as string}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex items-center gap-2 px-4 py-2 rounded-xl bg-crimson hover:bg-crimson-light text-white text-xs sm:text-sm font-bold uppercase tracking-wider shadow-[0_0_25px_rgba(215,25,47,0.7)] transition-all cursor-pointer"
@@ -963,68 +1050,88 @@ export const Projects: React.FC = () => {
                     PROJECT OVERVIEW
                   </span>
                   <p className="text-sm sm:text-base text-[#ded8cf] leading-relaxed font-light font-sans">
-                    {activeModalProject.overview}
+                    {activeModalProject.detailedOverview || activeModalProject.overview}
                   </p>
                 </div>
 
                 {/* The Challenge & Architectural Solution */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="p-5 sm:p-6 rounded-2xl bg-white/[0.02] border border-white/[0.08] space-y-2.5">
-                    <span className="text-xs font-mono font-bold tracking-[0.2em] text-amber-400 uppercase block">
-                      THE CHALLENGE
-                    </span>
-                    <ul className="space-y-2">
-                      {activeModalProject.challenges.map((c, i) => (
-                        <li key={i} className="text-xs sm:text-sm text-neutral-300 font-light leading-relaxed flex items-start gap-2">
-                          <span className="text-amber-400 font-bold">•</span>
-                          <span>{c}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
+                {((activeModalProject.challenges && activeModalProject.challenges.length > 0) ||
+                  (activeModalProject.solution && activeModalProject.solution.length > 0)) && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {activeModalProject.challenges && activeModalProject.challenges.length > 0 && (
+                      <div className="p-5 sm:p-6 rounded-2xl bg-white/[0.02] border border-white/[0.08] space-y-2.5">
+                        <span className="text-xs font-mono font-bold tracking-[0.2em] text-amber-400 uppercase block">
+                          THE CHALLENGE
+                        </span>
+                        <ul className="space-y-2">
+                          {activeModalProject.challenges.map((c, i) => (
+                            <li
+                              key={c || i}
+                              className="text-xs sm:text-sm text-neutral-300 font-light leading-relaxed flex items-start gap-2"
+                            >
+                              <span className="text-amber-400 font-bold">•</span>
+                              <span>{c}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
 
-                  <div className="p-5 sm:p-6 rounded-2xl bg-white/[0.02] border border-white/[0.08] space-y-2.5">
-                    <span className="text-xs font-mono font-bold tracking-[0.2em] text-emerald-400 uppercase block">
-                      ARCHITECTURAL SOLUTION
-                    </span>
-                    <ul className="space-y-2">
-                      {activeModalProject.solution.map((s, i) => (
-                        <li key={i} className="text-xs sm:text-sm text-neutral-300 font-light leading-relaxed flex items-start gap-2">
-                          <span className="text-emerald-400 font-bold">•</span>
-                          <span>{s}</span>
-                        </li>
-                      ))}
-                    </ul>
+                    {activeModalProject.solution && activeModalProject.solution.length > 0 && (
+                      <div className="p-5 sm:p-6 rounded-2xl bg-white/[0.02] border border-white/[0.08] space-y-2.5">
+                        <span className="text-xs font-mono font-bold tracking-[0.2em] text-emerald-400 uppercase block">
+                          ARCHITECTURAL SOLUTION
+                        </span>
+                        <ul className="space-y-2">
+                          {activeModalProject.solution.map((s, i) => (
+                            <li
+                              key={s || i}
+                              className="text-xs sm:text-sm text-neutral-300 font-light leading-relaxed flex items-start gap-2"
+                            >
+                              <span className="text-emerald-400 font-bold">•</span>
+                              <span>{s}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
                   </div>
-                </div>
+                )}
 
                 {/* My Contribution */}
-                <div className="p-6 sm:p-7 rounded-2xl bg-[linear-gradient(135deg,rgba(215,25,47,0.12)_0%,rgba(12,4,7,0.85)_100%)] border border-crimson/40 space-y-2.5">
-                  <span className="text-xs font-mono font-bold tracking-[0.2em] text-white uppercase block">
-                    MY CONTRIBUTION & IMPACT
-                  </span>
-                  <p className="text-sm sm:text-base text-neutral-200 leading-relaxed font-light">
-                    {activeModalProject.contribution}
-                  </p>
-                </div>
+                {activeModalProject.contribution && (
+                  <div className="p-6 sm:p-7 rounded-2xl bg-[linear-gradient(135deg,rgba(215,25,47,0.12)_0%,rgba(12,4,7,0.85)_100%)] border border-crimson/40 space-y-2.5">
+                    <span className="text-xs font-mono font-bold tracking-[0.2em] text-white uppercase block">
+                      MY CONTRIBUTION & IMPACT
+                    </span>
+                    <p className="text-sm sm:text-base text-neutral-200 leading-relaxed font-light">
+                      {activeModalProject.contribution}
+                    </p>
+                  </div>
+                )}
               </div>
 
               {/* Right Column: Roles, Technologies & Key Features (lg:col-span-5) */}
               <div className="lg:col-span-5 space-y-6">
                 {/* Role & Responsibilities */}
-                <div className="p-6 rounded-2xl bg-white/[0.02] border border-white/[0.08] space-y-3">
-                  <span className="text-xs font-mono font-bold tracking-[0.2em] text-crimson uppercase block">
-                    ROLE & RESPONSIBILITIES
-                  </span>
-                  <ul className="space-y-2">
-                    {activeModalProject.role.map((r, i) => (
-                      <li key={i} className="text-xs sm:text-sm text-neutral-300 flex items-center gap-2 font-medium">
-                        <CheckCircle2 size={14} className="text-crimson shrink-0" />
-                        <span>{r}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
+                {activeModalProject.role && activeModalProject.role.length > 0 && (
+                  <div className="p-6 rounded-2xl bg-white/[0.02] border border-white/[0.08] space-y-3">
+                    <span className="text-xs font-mono font-bold tracking-[0.2em] text-crimson uppercase block">
+                      ROLE & RESPONSIBILITIES
+                    </span>
+                    <ul className="space-y-2">
+                      {activeModalProject.role.map((r, i) => (
+                        <li
+                          key={r || i}
+                          className="text-xs sm:text-sm text-neutral-300 flex items-center gap-2 font-medium"
+                        >
+                          <CheckCircle2 size={14} className="text-crimson shrink-0" />
+                          <span>{r}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
 
                 {/* Technologies Used */}
                 <div className="p-6 rounded-2xl bg-white/[0.02] border border-white/[0.08] space-y-3">
@@ -1044,19 +1151,24 @@ export const Projects: React.FC = () => {
                 </div>
 
                 {/* Key Features List */}
-                <div className="p-6 rounded-2xl bg-white/[0.02] border border-white/[0.08] space-y-3">
-                  <span className="text-xs font-mono font-bold tracking-[0.2em] text-crimson uppercase block">
-                    KEY CAPABILITIES & FEATURES
-                  </span>
-                  <ul className="space-y-2.5">
-                    {activeModalProject.features.map((f, i) => (
-                      <li key={i} className="text-xs sm:text-sm text-neutral-300 leading-relaxed flex items-start gap-2 font-light">
-                        <span className="text-crimson font-bold text-xs mt-0.5">•</span>
-                        <span>{f}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
+                {activeModalProject.features && activeModalProject.features.length > 0 && (
+                  <div className="p-6 rounded-2xl bg-white/[0.02] border border-white/[0.08] space-y-3">
+                    <span className="text-xs font-mono font-bold tracking-[0.2em] text-crimson uppercase block">
+                      KEY CAPABILITIES & FEATURES
+                    </span>
+                    <ul className="space-y-2.5">
+                      {activeModalProject.features.map((f, i) => (
+                        <li
+                          key={f || i}
+                          className="text-xs sm:text-sm text-neutral-300 leading-relaxed flex items-start gap-2 font-light"
+                        >
+                          <span className="text-crimson font-bold text-xs mt-0.5">•</span>
+                          <span>{f}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -1075,17 +1187,20 @@ export const Projects: React.FC = () => {
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   {activeModalProject.gallery.map((imgUrl, i) => (
                     <button
-                      key={i}
+                      key={imgUrl || i}
                       type="button"
                       onClick={() => setLightboxImageIndex(i)}
                       className="relative aspect-video rounded-xl overflow-hidden border border-white/10 hover:border-crimson/60 group transition-all cursor-pointer bg-black/40"
                     >
                       <Image
-                        src={imgUrl}
+                        src={resolveMediaUrl(imgUrl, '/images/projects/technexa.jpg')}
                         alt={`${activeModalProject.title} screenshot ${i + 1}`}
                         fill
                         className="object-cover group-hover:scale-105 transition-transform duration-300"
                         sizes="(max-width: 640px) 100vw, 33vw"
+                        onError={(e) => {
+                          (e.currentTarget as HTMLImageElement).src = '/images/projects/technexa.jpg';
+                        }}
                       />
                       <div className="absolute inset-0 bg-black/30 group-hover:bg-transparent transition-colors" />
                       <div className="absolute bottom-2 right-2 p-1.5 rounded-lg bg-black/70 text-white opacity-0 group-hover:opacity-100 transition-opacity">
@@ -1111,7 +1226,7 @@ export const Projects: React.FC = () => {
               </button>
 
               <span className="text-xs font-mono text-neutral-500 hidden sm:inline-block">
-                {activeModalProject.title} ({activeModalProject.number} / {projectsData.length < 10 ? `0${projectsData.length}` : projectsData.length})
+                {activeModalProject.title} ({activeModalProject.number} / {visibleProjects.length < 10 ? `0${visibleProjects.length}` : visibleProjects.length})
               </span>
 
               <button
@@ -1147,11 +1262,14 @@ export const Projects: React.FC = () => {
 
           <div className="relative w-full max-w-5xl aspect-video rounded-2xl overflow-hidden border border-white/20 shadow-2xl">
             <Image
-              src={activeModalProject.gallery[lightboxImageIndex]}
+              src={resolveMediaUrl(activeModalProject.gallery[lightboxImageIndex], '/images/projects/technexa.jpg')}
               alt={`${activeModalProject.title} expanded view`}
               fill
               className="object-contain"
               sizes="100vw"
+              onError={(e) => {
+                (e.currentTarget as HTMLImageElement).src = '/images/projects/technexa.jpg';
+              }}
             />
           </div>
 
@@ -1186,3 +1304,4 @@ export const Projects: React.FC = () => {
     </section>
   );
 };
+

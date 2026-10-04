@@ -1,13 +1,15 @@
 'use client';
 
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import {
   allSkillsData,
   skillCategoriesData,
   coreStackItems,
   TechSkill,
   ProficiencyLevel,
+  normalizeSkillCategory,
 } from '@/data/skills';
+import type { SkillsContent } from '@/lib/cms/types';
 import { cn } from '@/lib/utils';
 import {
   ArrowRight,
@@ -177,33 +179,84 @@ const getProficiencyBadgeStyle = (level: ProficiencyLevel, isMini = false) => {
 // =========================================================================
 // MAIN SKILLS COMPONENT
 // =========================================================================
-export const Skills: React.FC = () => {
-  const [activeCategoryId, setActiveCategoryId] = useState<string>('development');
-  const [selectedSkillId, setSelectedSkillId] = useState<string>('react');
+export interface SkillsProps {
+  content?: SkillsContent;
+}
+
+export const Skills: React.FC<SkillsProps> = ({ content }) => {
+  const rawSkills = content?.skills && content.skills.length > 0 ? content.skills : allSkillsData;
+  const rawCategories =
+    content?.categories && content.categories.length > 0
+      ? content.categories
+      : skillCategoriesData;
+
+  // Filter visible skills and normalize categories to canonical slugs
+  const allSkills = useMemo(() => {
+    return rawSkills
+      .filter((s) => s.visible !== false)
+      .map((s) => ({
+        ...s,
+        category: normalizeSkillCategory(s.category),
+      }));
+  }, [rawSkills]);
+
+  // Dynamic canonical categories from CMS/content: only visible, sorted by order
+  const categories = useMemo(() => {
+    return rawCategories
+      .filter((c) => c.visible !== false)
+      .sort((a, b) => (a.order || 0) - (b.order || 0))
+      .map((c, idx) => ({
+        ...c,
+        id: c.slug || c.id,
+        num: c.num || String(idx + 1).padStart(2, '0'),
+      }));
+  }, [rawCategories]);
+
+  const [activeCategoryId, setActiveCategoryId] = useState<string>(
+    categories[0]?.id || 'development'
+  );
+  const [selectedSkillId, setSelectedSkillId] = useState<string>(
+    allSkills[0]?.id || 'react'
+  );
   const [isRotating, setIsRotating] = useState<boolean>(true);
   const [isCategoryTransitioning, setIsCategoryTransitioning] = useState<boolean>(false);
   const [isDetailTransitioning, setIsDetailTransitioning] = useState<boolean>(false);
 
+  // Synchronize activeCategoryId if categories change or activeCategoryId is not in categories
+  useEffect(() => {
+    if (categories.length > 0 && !categories.some((c) => c.id === activeCategoryId)) {
+      setActiveCategoryId(categories[0].id);
+    }
+  }, [categories, activeCategoryId]);
+
   // Active Category Data
   const currentCategory = useMemo(() => {
     return (
-      skillCategoriesData.find((c) => c.id === activeCategoryId) ||
-      skillCategoriesData[0]
+      categories.find((c) => c.id === activeCategoryId) ||
+      categories[0] || {
+        id: 'development',
+        name: 'DEVELOPMENT',
+        slug: 'development',
+        order: 1,
+        visible: true,
+        num: '01',
+        label: 'Full-Stack Web & Software Architecture',
+        description: '',
+      }
     );
-  }, [activeCategoryId]);
+  }, [categories, activeCategoryId]);
 
   // Skills in Current Category
   const categorySkills = useMemo(() => {
-    return allSkillsData.filter((s) => s.category === activeCategoryId);
-  }, [activeCategoryId]);
+    return allSkills.filter((s) => s.category === activeCategoryId);
+  }, [allSkills, activeCategoryId]);
 
   // Active Selected Skill
   const selectedSkill = useMemo(() => {
-    return (
-      allSkillsData.find((s) => s.id === selectedSkillId) ||
-      categorySkills[0] ||
-      allSkillsData[0]
-    );
+    if (categorySkills.length > 0) {
+      return categorySkills.find((s) => s.id === selectedSkillId) || categorySkills[0];
+    }
+    return null;
   }, [selectedSkillId, categorySkills]);
 
   // Select a category and its first skill with smooth transition
@@ -214,7 +267,7 @@ export const Skills: React.FC = () => {
       setIsDetailTransitioning(true);
       setActiveCategoryId(categoryId);
 
-      const firstOfCat = allSkillsData.find((s) => s.category === categoryId);
+      const firstOfCat = allSkills.find((s) => s.category === categoryId);
       if (firstOfCat) {
         setSelectedSkillId(firstOfCat.id);
       }
@@ -224,7 +277,7 @@ export const Skills: React.FC = () => {
         setIsDetailTransitioning(false);
       }, 180);
     },
-    [activeCategoryId]
+    [allSkills, activeCategoryId]
   );
 
   // Select a skill
@@ -234,7 +287,7 @@ export const Skills: React.FC = () => {
       setIsDetailTransitioning(true);
       setSelectedSkillId(skillId);
 
-      const skill = allSkillsData.find((s) => s.id === skillId);
+      const skill = allSkills.find((s) => s.id === skillId);
       if (skill && skill.category !== activeCategoryId) {
         setIsCategoryTransitioning(true);
         setActiveCategoryId(skill.category);
@@ -247,17 +300,19 @@ export const Skills: React.FC = () => {
         setIsDetailTransitioning(false);
       }, 150);
     },
-    [selectedSkillId, activeCategoryId]
+    [allSkills, selectedSkillId, activeCategoryId]
   );
 
   // Navigate to Next/Prev skill in category
   const handlePrevSkill = useCallback(() => {
+    if (categorySkills.length <= 1 || !selectedSkill) return;
     const currentIndex = categorySkills.findIndex((s) => s.id === selectedSkill.id);
     const prevIndex = (currentIndex - 1 + categorySkills.length) % categorySkills.length;
     handleSelectSkill(categorySkills[prevIndex].id);
   }, [categorySkills, selectedSkill, handleSelectSkill]);
 
   const handleNextSkill = useCallback(() => {
+    if (categorySkills.length <= 1 || !selectedSkill) return;
     const currentIndex = categorySkills.findIndex((s) => s.id === selectedSkill.id);
     const nextIndex = (currentIndex + 1) % categorySkills.length;
     handleSelectSkill(categorySkills[nextIndex].id);
@@ -272,8 +327,8 @@ export const Skills: React.FC = () => {
   const isRotatingRef = React.useRef<boolean>(isRotating);
   isRotatingRef.current = isRotating;
 
-  const selectedSkillIdRef = React.useRef<string>(selectedSkill.id);
-  selectedSkillIdRef.current = selectedSkill.id;
+  const selectedSkillIdRef = React.useRef<string>(selectedSkill?.id || '');
+  selectedSkillIdRef.current = selectedSkill?.id || '';
 
   // Calculate multi-layer orbital configurations with phase offsets & distinct speeds
   const orbitalNodesConfig = useMemo(() => {
@@ -474,9 +529,9 @@ export const Skills: React.FC = () => {
                 className="flex flex-row lg:flex-col gap-1.5 sm:gap-2 overflow-x-auto lg:overflow-x-visible pb-1.5 lg:pb-0 scrollbar-none snap-x"
                 aria-label="Skill Categories"
               >
-                {skillCategoriesData.map((cat) => {
+                {categories.map((cat) => {
                   const isActive = cat.id === activeCategoryId;
-                  const catCount = allSkillsData.filter((s) => s.category === cat.id).length;
+                  const catCount = allSkills.filter((s) => s.category === cat.id).length;
 
                   return (
                     <button
@@ -541,39 +596,43 @@ export const Skills: React.FC = () => {
               </div>
 
               <div className="space-y-1 pt-1 border-t border-white/[0.08]">
-                {categorySkills.map((sk) => {
-                  const isCur = sk.id === selectedSkill.id;
-                  return (
-                    <button
-                      key={sk.id}
-                      onClick={() => handleSelectSkill(sk.id)}
-                      className={cn(
-                        'w-full flex items-center justify-between text-xs py-1 px-1.5 rounded transition-colors text-left group',
-                        isCur
-                          ? 'bg-white/[0.06] text-white font-medium'
-                          : 'text-neutral-400 hover:text-white hover:bg-white/[0.03]'
-                      )}
-                    >
-                      <span className="truncate pr-2">{sk.name}</span>
-                      <span
+                {categorySkills.length > 0 ? (
+                  categorySkills.map((sk) => {
+                    const isCur = selectedSkill ? sk.id === selectedSkill.id : false;
+                    return (
+                      <button
+                        key={sk.id}
+                        onClick={() => handleSelectSkill(sk.id)}
                         className={cn(
-                          'text-[9px] font-mono uppercase px-1.5 py-0.2 rounded border shrink-0',
-                          getProficiencyBadgeStyle(sk.level, true)
+                          'w-full flex items-center justify-between text-xs py-1 px-1.5 rounded transition-colors text-left group',
+                          isCur
+                            ? 'bg-white/[0.06] text-white font-medium'
+                            : 'text-neutral-400 hover:text-white hover:bg-white/[0.03]'
                         )}
                       >
-                        {sk.level}
-                      </span>
-                    </button>
-                  );
-                })}
+                        <span className="break-words leading-tight pr-2">{sk.name}</span>
+                        <span
+                          className={cn(
+                            'text-[9px] font-mono uppercase px-1.5 py-0.2 rounded border shrink-0',
+                            getProficiencyBadgeStyle(sk.level, true)
+                          )}
+                        >
+                          {sk.level}
+                        </span>
+                      </button>
+                    );
+                  })
+                ) : (
+                  <p className="text-[11px] text-neutral-500 italic py-2">No skills in this category.</p>
+                )}
               </div>
             </div>
           </div>
 
           {/* =======================================================================
-              COLUMN 2: MAIN INTERACTIVE TECH GLOBE (lg:col-span-6 — VERTICALLY CENTERED)
+              COLUMN 2: MAIN INTERACTIVE TECH GLOBE (lg:col-span-5 — VERTICALLY CENTERED)
               ======================================================================= */}
-          <div className="lg:col-span-6 flex flex-col justify-between relative min-h-[460px] sm:min-h-[500px] lg:min-h-[540px] rounded-2xl sm:rounded-3xl bg-[linear-gradient(135deg,rgba(16,6,9,0.76)_0%,rgba(6,2,4,0.90)_100%)] backdrop-blur-2xl border border-white/[0.14] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.9),0_0_50px_rgba(215,25,47,0.12),inset_0_1px_1px_rgba(255,255,255,0.18)] p-3 sm:p-5 overflow-hidden">
+          <div className="lg:col-span-5 flex flex-col justify-between relative min-h-[440px] sm:min-h-[480px] lg:min-h-[520px] rounded-2xl sm:rounded-3xl bg-[linear-gradient(135deg,rgba(16,6,9,0.76)_0%,rgba(6,2,4,0.90)_100%)] backdrop-blur-2xl border border-white/[0.14] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.9),0_0_50px_rgba(215,25,47,0.12),inset_0_1px_1px_rgba(255,255,255,0.18)] p-3 sm:p-5 overflow-hidden">
             {/* Ambient Background Radial Glow */}
             <div
               className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_50%_50%,rgba(215,25,47,0.24)_0%,rgba(122,16,27,0.10)_45%,transparent_75%)] z-0"
@@ -604,7 +663,7 @@ export const Skills: React.FC = () => {
             <div className="flex-1 w-full flex items-center justify-center relative my-auto">
               <div
                 className={cn(
-                  'relative w-[540px] h-[520px] flex items-center justify-center z-10 scale-[0.62] min-[380px]:scale-[0.70] min-[440px]:scale-[0.80] sm:scale-[0.90] lg:scale-[0.98] xl:scale-100 transition-all duration-300 origin-center shrink-0',
+                  'relative w-[540px] h-[520px] flex items-center justify-center z-10 scale-[0.58] min-[360px]:scale-[0.66] min-[414px]:scale-[0.74] sm:scale-[0.85] lg:scale-[0.92] xl:scale-100 transition-all duration-300 origin-center shrink-0',
                   isCategoryTransitioning ? 'opacity-0 scale-[0.94]' : 'opacity-100'
                 )}
               >
@@ -725,7 +784,7 @@ export const Skills: React.FC = () => {
                 {/* Layer 4: Orbiting Technology Nodes (Clean pill, strictly upright orientation) */}
                 <div className="absolute inset-0 z-20 pointer-events-none">
                   {orbitalNodesConfig.map((node) => {
-                    const isSelected = node.id === selectedSkill.id;
+                    const isSelected = selectedSkill ? node.id === selectedSkill.id : false;
                     const initX = 270 + Math.cos(node.baseAngle) * node.radiusX;
                     const initY = 260 + Math.sin(node.baseAngle) * node.radiusY;
 
@@ -813,9 +872,9 @@ export const Skills: React.FC = () => {
           </div>
 
           {/* =======================================================================
-              COLUMN 3: RIGHT LIQUID-GLASS DETAIL PANEL (lg:col-span-3 — AIRY & EDITORIAL)
+              COLUMN 3: RIGHT LIQUID-GLASS DETAIL PANEL (lg:col-span-4 — AIRY & CONTENT-DRIVEN)
               ======================================================================= */}
-          <div className="lg:col-span-3 flex flex-col justify-between rounded-2xl bg-[linear-gradient(135deg,rgba(18,7,10,0.88)_0%,rgba(8,3,5,0.94)_100%)] backdrop-blur-2xl border border-white/[0.16] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.9),0_0_40px_rgba(215,25,47,0.12),inset_0_1px_1px_rgba(255,255,255,0.2)] p-5 sm:p-6 lg:p-7 relative overflow-hidden min-h-[460px] sm:min-h-[500px] lg:min-h-[540px]">
+          <div className="lg:col-span-4 flex flex-col justify-between rounded-2xl bg-[linear-gradient(135deg,rgba(18,7,10,0.88)_0%,rgba(8,3,5,0.94)_100%)] backdrop-blur-2xl border border-white/[0.16] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.9),0_0_40px_rgba(215,25,47,0.12),inset_0_1px_1px_rgba(255,255,255,0.2)] p-4 sm:p-5 lg:p-6 relative overflow-hidden h-auto min-h-[440px] sm:min-h-[480px] lg:min-h-[520px]">
             {/* Specular Top Highlight */}
             <div
               className="absolute top-0 left-0 right-0 h-[1.5px] pointer-events-none bg-gradient-to-r from-transparent via-crimson to-transparent shadow-[0_0_10px_rgba(215,25,47,0.8)] opacity-90"
@@ -823,123 +882,145 @@ export const Skills: React.FC = () => {
             />
 
             {/* Detail Content (with smooth fade transition) */}
-            <div
-              className={cn(
-                'space-y-4 transition-opacity duration-200 flex-1 flex flex-col justify-between',
-                isDetailTransitioning ? 'opacity-0 scale-[0.99]' : 'opacity-100 scale-100'
-              )}
-            >
-              {/* Top Tag & Clear Proficiency Level Badge */}
-              <div>
-                <div className="flex items-center justify-between border-b border-white/[0.08] pb-3 mb-3">
-                  <span className="text-[11px] font-mono tracking-widest text-crimson font-bold uppercase">
-                    {selectedSkill.categoryLabel}
-                  </span>
+            {selectedSkill ? (
+              <div
+                className={cn(
+                  'transition-opacity duration-200 flex-1 flex flex-col justify-between space-y-4',
+                  isDetailTransitioning ? 'opacity-0 scale-[0.99]' : 'opacity-100 scale-100'
+                )}
+              >
+                {/* Upper Content Body */}
+                <div className="space-y-3.5">
+                  {/* Top Tag & Clear Proficiency Level Badge */}
+                  <div className="flex items-center justify-between border-b border-white/[0.08] pb-3 gap-2">
+                    <span className="text-[11px] font-mono tracking-widest text-crimson font-bold uppercase truncate">
+                      {selectedSkill.categoryLabel || currentCategory.name}
+                    </span>
 
-                  {/* Exact Proficiency Level Badge: ADVANCED / INTERMEDIATE / BEGINNER */}
-                  <span
-                    className={cn(
-                      'px-3 py-1 rounded-full text-[10.5px] font-mono font-bold uppercase tracking-wider border',
-                      getProficiencyBadgeStyle(selectedSkill.level)
-                    )}
-                  >
-                    {selectedSkill.level.toUpperCase()}
-                  </span>
-                </div>
+                    {/* Exact Proficiency Level Badge: ADVANCED / INTERMEDIATE / BEGINNER */}
+                    <span
+                      className={cn(
+                        'px-2.5 sm:px-3 py-1 rounded-full text-[10px] sm:text-[10.5px] font-mono font-bold uppercase tracking-wider border shrink-0',
+                        getProficiencyBadgeStyle(selectedSkill.level)
+                      )}
+                    >
+                      {selectedSkill.level.toUpperCase()}
+                    </span>
+                  </div>
 
-                {/* Tech Title & Role */}
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-lg bg-crimson/20 border border-crimson/40 flex items-center justify-center text-white shrink-0">
+                  {/* Tech Title & Role */}
+                  <div className="flex items-start gap-3">
+                    <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-crimson/20 border border-crimson/40 flex items-center justify-center text-white shrink-0 mt-0.5 shadow-[0_0_10px_rgba(215,25,47,0.3)]">
                       <TechIcon type={selectedSkill.iconType} size={17} />
                     </div>
-                    <h3 className="text-2xl sm:text-3xl lg:text-[2rem] font-bold uppercase text-white font-editorial tracking-tight leading-none drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)]">
-                      {selectedSkill.name}
-                    </h3>
+
+                    <div className="min-w-0 flex-1 space-y-1">
+                      <h3 className="text-xl sm:text-2xl lg:text-[1.65rem] xl:text-[1.85rem] font-bold uppercase text-white font-editorial tracking-tight leading-[1.12] drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)] break-words [overflow-wrap:anywhere]">
+                        {selectedSkill.name}
+                      </h3>
+
+                      <span className="text-[11px] sm:text-xs font-mono uppercase tracking-widest text-neutral-400 font-semibold block leading-tight break-words pt-0.5">
+                        {selectedSkill.role}
+                      </span>
+                    </div>
                   </div>
 
-                  <span className="text-xs font-mono uppercase tracking-widest text-neutral-400 font-semibold block pt-1">
-                    {selectedSkill.role}
-                  </span>
+                  {/* Factual Description */}
+                  <p className="text-xs sm:text-[13px] lg:text-sm text-[#ded8cf] leading-relaxed font-light pt-2.5 border-t border-white/[0.08] break-words">
+                    {selectedSkill.description}
+                  </p>
+
+                  {/* What I Use It For */}
+                  {selectedSkill.usage && selectedSkill.usage.length > 0 && (
+                    <div className="space-y-1.5 pt-1">
+                      <span className="text-[10px] sm:text-[10.5px] font-mono font-bold tracking-[0.2em] text-crimson uppercase block">
+                        WHAT I USE IT FOR
+                      </span>
+                      <ul className="space-y-1.5">
+                        {selectedSkill.usage.map((useItem, idx) => (
+                          <li
+                            key={useItem || idx}
+                            className="text-xs sm:text-[13px] text-neutral-300 flex items-start gap-2 leading-normal"
+                          >
+                            <span className="text-crimson text-xs font-bold leading-none mt-1 shrink-0">•</span>
+                            <span className="break-words min-w-0 flex-1">{useItem}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {/* Related In My Stack */}
+                  {selectedSkill.related && selectedSkill.related.length > 0 && (
+                    <div className="space-y-1.5 pt-2 border-t border-white/[0.08]">
+                      <span className="text-[10px] font-mono font-bold tracking-[0.2em] text-neutral-400 uppercase block">
+                        RELATED IN MY STACK
+                      </span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {selectedSkill.related.map((relName) => {
+                          const matchSkill = allSkills.find(
+                            (s) => s.name.toLowerCase() === relName.toLowerCase()
+                          );
+                          return (
+                            <button
+                              key={relName}
+                              onClick={() => {
+                                if (matchSkill) handleSelectSkill(matchSkill.id);
+                              }}
+                              className="px-2.5 py-1 rounded-md text-[11px] sm:text-xs font-mono uppercase bg-white/[0.04] hover:bg-crimson/20 border border-white/10 hover:border-crimson/50 text-neutral-300 hover:text-white transition-colors break-words max-w-full text-left cursor-pointer"
+                            >
+                              {relName}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
-                {/* Factual Description */}
-                <p className="text-sm sm:text-[14px] text-[#ded8cf] leading-relaxed font-light mt-3 pt-3 border-t border-white/[0.08]">
-                  {selectedSkill.description}
-                </p>
-              </div>
-
-              {/* What I Use It For */}
-              <div className="space-y-1.5 pt-1">
-                <span className="text-[10.5px] font-mono font-bold tracking-[0.2em] text-crimson uppercase block">
-                  WHAT I USE IT FOR
-                </span>
-                <ul className="space-y-1.5">
-                  {selectedSkill.usage.map((useItem, idx) => (
-                    <li
-                      key={idx}
-                      className="text-xs sm:text-[13px] text-neutral-300 flex items-start gap-2 leading-tight"
+                {/* Bottom Nav Arrows */}
+                {categorySkills.length > 1 && (
+                  <div className="flex items-center justify-between pt-3 mt-4 border-t border-white/[0.08] text-xs font-mono text-neutral-400 shrink-0">
+                    <button
+                      onClick={handlePrevSkill}
+                      className="flex items-center gap-1 hover:text-white transition-colors p-1 -ml-1 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-crimson rounded cursor-pointer"
+                      aria-label="Previous skill"
                     >
-                      <span className="text-crimson text-xs font-bold leading-none mt-0.5">•</span>
-                      <span>{useItem}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
+                      <ChevronLeft size={16} className="text-crimson" />
+                      <span>PREV</span>
+                    </button>
 
-              {/* Related In My Stack */}
-              {selectedSkill.related && selectedSkill.related.length > 0 && (
-                <div className="space-y-1.5 pt-2 border-t border-white/[0.08]">
-                  <span className="text-[10px] font-mono font-bold tracking-[0.2em] text-neutral-400 uppercase block">
-                    RELATED IN MY STACK
-                  </span>
-                  <div className="flex flex-wrap gap-1.5">
-                    {selectedSkill.related.map((relName) => {
-                      const matchSkill = allSkillsData.find(
-                        (s) => s.name.toLowerCase() === relName.toLowerCase()
-                      );
-                      return (
-                        <button
-                          key={relName}
-                          onClick={() => {
-                            if (matchSkill) handleSelectSkill(matchSkill.id);
-                          }}
-                          className="px-2.5 py-1 rounded text-xs font-mono uppercase bg-white/[0.04] hover:bg-crimson/20 border border-white/10 hover:border-crimson/50 text-neutral-300 hover:text-white transition-colors"
-                        >
-                          {relName}
-                        </button>
-                      );
-                    })}
+                    <span className="text-[11px] text-neutral-500 font-medium">
+                      {categorySkills.findIndex((s) => s.id === selectedSkill.id) + 1} /{' '}
+                      {categorySkills.length}
+                    </span>
+
+                    <button
+                      onClick={handleNextSkill}
+                      className="flex items-center gap-1 hover:text-white transition-colors p-1 -mr-1 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-crimson rounded cursor-pointer"
+                      aria-label="Next skill"
+                    >
+                      <span>NEXT</span>
+                      <ChevronRight size={16} className="text-crimson" />
+                    </button>
                   </div>
+                )}
+              </div>
+            ) : (
+              <div className="flex-1 flex flex-col items-center justify-center text-center p-6 space-y-3">
+                <div className="w-12 h-12 rounded-full bg-white/[0.04] border border-white/10 flex items-center justify-center text-neutral-500">
+                  <Sparkles size={20} className="text-neutral-500" />
                 </div>
-              )}
-            </div>
-
-            {/* Bottom Nav Arrows */}
-            <div className="flex items-center justify-between pt-3 mt-3 border-t border-white/[0.08] text-xs font-mono text-neutral-400">
-              <button
-                onClick={handlePrevSkill}
-                className="flex items-center gap-1 hover:text-white transition-colors p-1 -ml-1 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-crimson rounded"
-                aria-label="Previous skill"
-              >
-                <ChevronLeft size={16} className="text-crimson" />
-                <span>PREV</span>
-              </button>
-
-              <span className="text-[11px] text-neutral-500 font-medium">
-                {categorySkills.findIndex((s) => s.id === selectedSkill.id) + 1} /{' '}
-                {categorySkills.length}
-              </span>
-
-              <button
-                onClick={handleNextSkill}
-                className="flex items-center gap-1 hover:text-white transition-colors p-1 -mr-1 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-crimson rounded"
-                aria-label="Next skill"
-              >
-                <span>NEXT</span>
-                <ChevronRight size={16} className="text-crimson" />
-              </button>
-            </div>
+                <div className="space-y-1">
+                  <h4 className="text-base font-editorial uppercase tracking-wider text-neutral-300">
+                    NO PUBLISHED SKILLS
+                  </h4>
+                  <p className="text-xs text-neutral-500 font-mono max-w-[220px]">
+                    No active skills currently published in {currentCategory.name}.
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -958,10 +1039,10 @@ export const Skills: React.FC = () => {
           {/* Clean Primary Tech Pills */}
           <div className="flex flex-wrap items-center gap-2 sm:gap-2.5 flex-1">
             {coreStackItems.map((item, idx) => {
-              const isSelected = selectedSkill.id === item.skillId;
+              const isSelected = selectedSkill ? selectedSkill.id === item.skillId : false;
               return (
                 <button
-                  key={idx}
+                  key={item.skillId || item.name || idx}
                   onClick={() => handleSelectSkill(item.skillId)}
                   className={cn(
                     'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-sans transition-all border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-crimson',

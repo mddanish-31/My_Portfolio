@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { footerData } from '@/data/footer';
+import type { FooterContent, SiteSettings } from '@/lib/cms/types';
 import { cn } from '@/lib/utils';
 import {
   ArrowUpRight,
@@ -14,7 +15,12 @@ import {
   Code2,
 } from 'lucide-react';
 
-export const Footer: React.FC = () => {
+export interface FooterProps {
+  content?: FooterContent;
+  settings?: SiteSettings;
+}
+
+export const Footer: React.FC<FooterProps> = ({ content, settings }) => {
   const [isVisible, setIsVisible] = useState<boolean>(false);
   const footerRef = useRef<HTMLElement>(null);
 
@@ -41,7 +47,18 @@ export const Footer: React.FC = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const { cta, brand, navigation, socials, admin, bottom } = footerData;
+  const cta = content?.cta || footerData.cta;
+  const brand = content?.brand || footerData.brand;
+  const navigation =
+    content?.navigation && content.navigation.length > 0
+      ? content.navigation
+      : footerData.navigation;
+  const socials =
+    content?.socials && content.socials.length > 0
+      ? content.socials
+      : footerData.socials;
+  const admin = content?.admin || footerData.admin;
+  const bottom = content?.bottom || footerData.bottom;
 
   return (
     <footer
@@ -98,13 +115,19 @@ export const Footer: React.FC = () => {
 
           {/* Large Editorial Headline */}
           <h2 className="text-4xl sm:text-6xl md:text-7xl lg:text-8xl font-bold uppercase text-white font-editorial tracking-tight leading-[0.92] drop-shadow-[0_4px_20px_rgba(0,0,0,0.9)] max-w-4xl z-10">
-            {cta.heading[0]}
-            <br />
-            {cta.heading[1]}
-            <br />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-white via-neutral-100 to-neutral-400">
-              {cta.heading[2]}
-            </span>
+            {Array.isArray(cta.heading) ? (
+              <span>
+                {cta.heading[0]}
+                <br />
+                {cta.heading[1]}
+                <br />
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-white via-neutral-100 to-neutral-400">
+                  {cta.heading.slice(2).join(' ')}
+                </span>
+              </span>
+            ) : (
+              cta.heading
+            )}
           </h2>
 
           {/* Supporting Copy */}

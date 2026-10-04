@@ -7,6 +7,7 @@ import {
   EducationLevelId,
   EducationItem,
 } from '@/data/education';
+import type { EducationContent } from '@/lib/cms/types';
 import { cn } from '@/lib/utils';
 import {
   GraduationCap,
@@ -17,12 +18,26 @@ import {
   TrendingUp,
 } from 'lucide-react';
 
-export const Education: React.FC = () => {
+export interface EducationProps {
+  content?: EducationContent;
+}
+
+export const Education: React.FC<EducationProps> = ({ content }) => {
   const [activeId, setActiveId] = useState<EducationLevelId>('undergraduate');
   const [isTransitioning, setIsTransitioning] = useState<boolean>(false);
   const [hoveredCard, setHoveredCard] = useState<boolean>(false);
   const [isVisible, setIsVisible] = useState<boolean>(false);
   const sectionRef = useRef<HTMLElement>(null);
+
+  const items = content?.items && content.items.length > 0 ? content.items : educationList;
+  const records = content?.records || educationRecords;
+
+  const chapter = content?.chapter || 'CHAPTER 06';
+  const eyebrow = content?.eyebrow || 'ACADEMIC BACKGROUND';
+  const heading = content?.heading || ['EDUCATION &', 'FOUNDATION'];
+  const subheading =
+    content?.subheading ||
+    'Consistent academic growth with a strong foundation in computer science, mathematics, and technology.';
 
   // Viewport scroll reveal
   useEffect(() => {
@@ -53,7 +68,10 @@ export const Education: React.FC = () => {
     }, 220);
   }, [activeId]);
 
-  const activeRecord: EducationItem = educationRecords[activeId] || educationRecords.undergraduate;
+  const activeRecord: EducationItem =
+    (records as Record<string, EducationItem>)[activeId] ||
+    (records as Record<string, EducationItem>)['undergraduate'] ||
+    educationRecords.undergraduate;
 
   return (
     <section
@@ -87,12 +105,12 @@ export const Education: React.FC = () => {
             <div className="flex items-center gap-2.5">
               <span className="w-2 h-2 rounded-full bg-crimson inline-block animate-pulse shadow-[0_0_8px_rgba(215,25,47,0.9)]" />
               <span className="text-xs sm:text-sm font-bold tracking-[0.25em] text-white uppercase font-sans">
-                ACADEMIC BACKGROUND
+                {eyebrow}
               </span>
             </div>
 
             <span className="text-xs sm:text-sm font-mono uppercase tracking-[0.25em] text-neutral-400 font-medium">
-              CHAPTER 06 • ACADEMIC ARCHIVE
+              {chapter} • ACADEMIC ARCHIVE
             </span>
           </div>
 
@@ -101,21 +119,27 @@ export const Education: React.FC = () => {
             <div className="space-y-1.5 sm:space-y-2 max-w-2xl">
               <div className="flex items-center gap-2 text-crimson font-mono text-xs sm:text-sm font-bold tracking-widest uppercase">
                 <span className="w-4 h-[1.5px] bg-crimson inline-block" />
-                <span>CHAPTER 06</span>
+                <span>{chapter}</span>
               </div>
 
               <h2 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold uppercase text-white font-editorial tracking-tight leading-[0.95] drop-shadow-[0_2px_14px_rgba(0,0,0,0.8)]">
-                EDUCATION &<br />
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-white via-neutral-100 to-neutral-400">
-                  FOUNDATION
-                </span>
+                {Array.isArray(heading) ? (
+                  <span>
+                    {heading[0]}
+                    <br />
+                    <span className="text-transparent bg-clip-text bg-gradient-to-r from-white via-neutral-100 to-neutral-400">
+                      {heading.slice(1).join(' ')}
+                    </span>
+                  </span>
+                ) : (
+                  heading
+                )}
               </h2>
             </div>
 
             <div className="max-w-md lg:pb-1">
               <p className="text-sm sm:text-base text-[#ded8cf] font-sans leading-relaxed font-light">
-                Consistent academic growth with a strong foundation in computer science,
-                mathematics, and technology.
+                {subheading}
               </p>
             </div>
           </div>
@@ -146,7 +170,7 @@ export const Education: React.FC = () => {
             aria-label="Academic Milestones"
             className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-3.5"
           >
-            {educationList.map((item) => {
+            {items.map((item) => {
               const isActive = activeId === item.id;
 
               return (
@@ -156,7 +180,7 @@ export const Education: React.FC = () => {
                   role="tab"
                   aria-selected={isActive}
                   aria-controls="education-detail-card"
-                  onClick={() => handleSelectEducation(item.id)}
+                  onClick={() => handleSelectEducation(item.id as EducationLevelId)}
                   className={cn(
                     'group relative flex items-center gap-3 p-3 rounded-xl border transition-all duration-250 text-left cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-crimson min-h-[52px]',
                     isActive
@@ -193,7 +217,7 @@ export const Education: React.FC = () => {
                     </div>
                     <span
                       className={cn(
-                        'text-xs sm:text-sm font-bold truncate block transition-colors duration-250',
+                        'text-xs sm:text-sm font-bold break-words leading-tight block transition-colors duration-250',
                         isActive ? 'text-white' : 'text-neutral-300 group-hover:text-white'
                       )}
                     >
@@ -353,7 +377,7 @@ export const Education: React.FC = () => {
                   </span>
                   {activeRecord.highlights.map((h, i) => (
                     <div
-                      key={i}
+                      key={h || i}
                       className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/[0.02] border border-white/[0.08] text-xs font-sans text-neutral-300 font-light"
                     >
                       <CheckCircle2 size={13} className="text-crimson shrink-0" />

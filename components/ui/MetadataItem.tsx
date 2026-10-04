@@ -27,7 +27,7 @@ export const MetadataItem: React.FC<MetadataItemProps> = ({
         {Array.isArray(value) ? (
           value.map((line, idx) => (
             <span
-              key={idx}
+              key={line || idx}
               className="text-xs sm:text-[13px] font-bold tracking-tight text-white uppercase font-sans leading-snug"
             >
               {line}

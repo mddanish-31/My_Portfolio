@@ -3,9 +3,15 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
 import { aboutSlides, AboutSlide } from '@/data/about';
+import type { AboutContent } from '@/lib/cms/types';
 import { cn } from '@/lib/utils';
 
-export const About: React.FC = () => {
+export interface AboutProps {
+  content?: AboutContent;
+}
+
+export const About: React.FC<AboutProps> = ({ content }) => {
+  const slides = content?.slides && content.slides.length > 0 ? content.slides : aboutSlides;
   const [activeIndex, setActiveIndex] = useState(0);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(false);
@@ -17,7 +23,7 @@ export const About: React.FC = () => {
   const lastGestureTimeRef = useRef<number>(0);
   const accumulatedDeltaXRef = useRef<number>(0);
 
-  const total = aboutSlides.length;
+  const total = slides.length;
 
   // Keep refs in sync for event listeners
   useEffect(() => {
@@ -170,32 +176,32 @@ export const About: React.FC = () => {
     return diff;
   };
 
-  // Render individual slide card content with responsive, fitted typography
+  // Render individual slide card content with responsive, content-safe layout
   const renderCardContent = (slide: AboutSlide, isActive: boolean) => {
     return (
-      <div className="h-full w-full flex flex-col justify-between p-5 sm:p-7 md:p-8 lg:p-9 relative z-10 select-none box-border min-w-0 overflow-hidden">
+      <div className="w-full h-full flex flex-col justify-between p-5 sm:p-7 md:p-8 lg:p-9 relative z-10 select-none box-border min-w-0">
         
         {/* Top Header: Slide Number + Glass Category Badge */}
-        <div className="flex items-center justify-between pb-3 sm:pb-4 border-b border-white/[0.08] shrink-0">
-          <span className="text-2xl sm:text-3xl lg:text-4xl font-bold font-editorial text-crimson leading-none tracking-tight drop-shadow-[0_0_12px_rgba(215,25,47,0.4)]">
+        <div className="flex items-center justify-between pb-3 sm:pb-4 border-b border-white/[0.08] shrink-0 gap-3">
+          <span className="text-2xl sm:text-3xl lg:text-4xl font-bold font-editorial text-crimson leading-none tracking-tight drop-shadow-[0_0_12px_rgba(215,25,47,0.4)] shrink-0">
             {slide.number}
           </span>
-          <span className="px-2.5 py-0.5 rounded-full bg-white/[0.04] border border-white/[0.08] backdrop-blur-md text-[10px] sm:text-xs font-mono uppercase tracking-[0.2em] text-neutral-300 font-semibold truncate ml-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
+          <span className="px-2.5 py-0.5 rounded-full bg-white/[0.04] border border-white/[0.08] backdrop-blur-md text-[10px] sm:text-xs font-mono uppercase tracking-[0.2em] text-neutral-300 font-semibold shrink-0 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
             {slide.category}
           </span>
         </div>
 
-        {/* Center Editorial Title & Text (Responsive & Non-Clipping) */}
-        <div className="my-auto py-3 sm:py-4 space-y-3 sm:space-y-3.5 min-w-0 overflow-hidden">
-          <h3 className="text-2xl sm:text-3xl md:text-4xl lg:text-[2.6rem] xl:text-[2.85rem] font-bold uppercase text-white font-editorial tracking-[-0.02em] leading-[1.08] break-words drop-shadow-[0_2px_12px_rgba(0,0,0,0.6)]">
+        {/* Center Editorial Title & Text (Content-Driven & Fully Visible) */}
+        <div className="my-auto py-2 sm:py-3.5 space-y-2.5 sm:space-y-3.5 min-w-0">
+          <h3 className="text-2xl sm:text-3xl md:text-4xl lg:text-[2.5rem] xl:text-[2.75rem] font-bold uppercase text-white font-editorial tracking-[-0.02em] leading-[1.08] break-words drop-shadow-[0_2px_12px_rgba(0,0,0,0.6)]">
             {slide.title}
           </h3>
 
-          <div className="h-[2px] w-10 sm:w-12 bg-gradient-to-r from-crimson via-crimson to-transparent rounded-full" />
+          <div className="h-[2px] w-10 sm:w-12 bg-gradient-to-r from-crimson via-crimson to-transparent rounded-full shrink-0" />
 
           {/* Slide 02 Specific Minimal Education Layout */}
           {slide.id === 'education' && slide.educationDetails ? (
-            <div className="space-y-2.5 pt-0.5 min-w-0">
+            <div className="space-y-2 pt-0.5 min-w-0">
               <p className="text-sm sm:text-base lg:text-lg font-bold text-white uppercase font-poster tracking-wide leading-snug break-words">
                 {slide.educationDetails.degree}
               </p>
@@ -204,42 +210,42 @@ export const About: React.FC = () => {
                 <span className="text-neutral-600">•</span>
                 <span className="text-crimson font-bold">{slide.educationDetails.cohort}</span>
               </div>
-              <p className="text-xs sm:text-sm text-neutral-300 font-sans leading-relaxed font-light pt-1 break-words">
+              <p className="text-xs sm:text-sm md:text-[14.5px] text-neutral-300 font-sans leading-relaxed font-light pt-1 break-words whitespace-pre-line">
                 {slide.text}
               </p>
             </div>
           ) : slide.id === 'what-i-do' && slide.keywords ? (
             /* Slide 03 Specific Minimal Capabilities Grid */
-            <div className="space-y-2.5 pt-0.5 min-w-0">
-              <div className="grid grid-cols-2 gap-2 sm:gap-2.5">
+            <div className="space-y-2 pt-0.5 min-w-0">
+              <div className="grid grid-cols-1 min-[380px]:grid-cols-2 gap-2 sm:gap-2.5">
                 {slide.keywords.map((kw, i) => (
                   <div
-                    key={i}
-                    className="p-2 sm:p-2.5 bg-white/[0.04] border border-white/[0.08] backdrop-blur-md rounded-md text-[11px] sm:text-xs font-bold text-white font-poster tracking-wider flex items-center gap-1.5 truncate shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]"
+                    key={kw || i}
+                    className="p-2 sm:p-2.5 bg-white/[0.04] border border-white/[0.08] backdrop-blur-md rounded-md text-[11px] sm:text-xs font-bold text-white font-poster tracking-wider flex items-center gap-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] min-w-0"
                   >
                     <span className="w-1.5 h-1.5 rounded-full bg-crimson shrink-0 shadow-[0_0_6px_rgba(215,25,47,0.8)]" />
-                    <span className="truncate">{kw}</span>
+                    <span className="break-words min-w-0 flex-1 leading-tight">{kw}</span>
                   </div>
                 ))}
               </div>
-              <p className="text-xs sm:text-sm text-neutral-300 font-sans leading-relaxed font-light pt-1 break-words">
+              <p className="text-xs sm:text-sm md:text-[14.5px] text-neutral-300 font-sans leading-relaxed font-light pt-1 break-words whitespace-pre-line">
                 {slide.text}
               </p>
             </div>
           ) : (
             /* Standard Slides (01, 04, 05, 06) Narrative Text */
-            <p className="text-xs sm:text-sm md:text-base lg:text-[1.05rem] text-neutral-200 font-sans leading-relaxed font-light break-words max-w-xl">
+            <p className="text-xs sm:text-sm md:text-base lg:text-[1.02rem] text-neutral-200 font-sans leading-relaxed font-light break-words max-w-2xl whitespace-pre-line">
               {slide.text}
             </p>
           )}
         </div>
 
         {/* Bottom Label Metadata */}
-        <div className="pt-3 sm:pt-4 border-t border-white/[0.08] flex items-center justify-between shrink-0">
-          <span className="text-[10px] sm:text-xs font-mono tracking-[0.2em] text-crimson uppercase font-semibold truncate">
+        <div className="pt-3 sm:pt-4 border-t border-white/[0.08] flex items-center justify-between shrink-0 gap-2 mt-auto">
+          <span className="text-[10px] sm:text-xs font-mono tracking-[0.2em] text-crimson uppercase font-semibold break-words min-w-0">
             {slide.bottomLabel}
           </span>
-          <span className="text-[10px] font-mono text-neutral-500 uppercase tracking-widest hidden sm:inline-block ml-2">
+          <span className="text-[10px] font-mono text-neutral-500 uppercase tracking-widest hidden sm:inline-block shrink-0 ml-2">
             EDITORIAL SPREAD
           </span>
         </div>
@@ -291,16 +297,16 @@ export const About: React.FC = () => {
           <div className="flex items-center gap-2.5">
             <span className="w-2 h-2 rounded-full bg-crimson inline-block animate-pulse shadow-[0_0_8px_rgba(215,25,47,0.9)]" />
             <span className="text-xs sm:text-sm font-bold tracking-[0.25em] text-white uppercase font-sans">
-              ABOUT ME
+              {content?.eyebrow || 'ABOUT ME'}
             </span>
           </div>
 
           {/* Minimal Top-Right Controls: 01 / 06 with liquid glass pill buttons */}
           <div className="flex items-center gap-3 sm:gap-4">
             <span className="text-xs sm:text-sm font-mono text-neutral-300 tracking-widest">
-              <span className="text-white font-bold">{aboutSlides[activeIndex].number}</span>
+              <span className="text-white font-bold">{slides[activeIndex]?.number || `0${activeIndex + 1}`}</span>
               <span className="text-neutral-600 mx-1.5">/</span>
-              <span className="text-neutral-500">06</span>
+              <span className="text-neutral-500">{total < 10 ? `0${total}` : total}</span>
             </span>
 
             <div className="flex items-center gap-1.5">
@@ -330,9 +336,9 @@ export const About: React.FC = () => {
         {/* =========================================================================
             3-PANEL HORIZONTAL SLIDER STAGE (PERFECTLY STRAIGHT LIQUID GLASS PANELS)
             ========================================================================= */}
-        <div className="relative w-full h-[450px] sm:h-[480px] lg:h-[520px] my-auto flex items-center justify-center overflow-visible">
+        <div className="relative w-full min-h-[480px] sm:min-h-[510px] md:min-h-[540px] lg:min-h-[560px] h-auto my-auto py-3 sm:py-6 flex items-center justify-center overflow-visible">
           
-          {aboutSlides.map((slide, index) => {
+          {slides.map((slide, index) => {
             const offset = getOffset(index);
             const isActive = offset === 0;
             const isLeft = offset === -1;
@@ -411,7 +417,7 @@ export const About: React.FC = () => {
                     : 'transform 750ms cubic-bezier(0.16, 1, 0.3, 1), opacity 750ms cubic-bezier(0.16, 1, 0.3, 1)',
                 }}
                 className={cn(
-                  'absolute top-1/2 left-1/2 w-[86vw] sm:w-[540px] md:w-[600px] lg:w-[660px] xl:w-[710px] h-[400px] sm:h-[430px] lg:h-[460px] rounded-2xl select-none box-border overflow-hidden',
+                  'absolute top-1/2 left-1/2 w-[90vw] sm:w-[540px] md:w-[600px] lg:w-[660px] xl:w-[720px] max-w-full min-h-[440px] sm:min-h-[470px] md:min-h-[490px] lg:min-h-[510px] h-auto rounded-2xl select-none box-border flex flex-col justify-between',
                   isActive
                     ? 'bg-[linear-gradient(135deg,rgba(26,10,14,0.52)_0%,rgba(14,6,9,0.62)_100%)] backdrop-blur-2xl backdrop-saturate-[160%] border border-white/[0.18] shadow-[0_30px_80px_-15px_rgba(0,0,0,0.95),0_0_60px_rgba(215,25,47,0.22),inset_0_1px_1px_rgba(255,255,255,0.28),inset_0_-1px_1px_rgba(0,0,0,0.6)]'
                     : 'bg-[linear-gradient(135deg,rgba(18,8,12,0.38)_0%,rgba(10,4,6,0.48)_100%)] backdrop-blur-xl backdrop-saturate-[130%] border border-white/[0.09] hover:border-white/[0.18] shadow-[0_15px_45px_-10px_rgba(0,0,0,0.85),inset_0_1px_0_rgba(255,255,255,0.12),inset_0_-1px_1px_rgba(0,0,0,0.4)]'
@@ -465,11 +471,11 @@ export const About: React.FC = () => {
               aria-hidden="true"
             />
 
-            {aboutSlides.map((slide, idx) => {
+            {slides.map((slide, idx) => {
               const isActive = idx === activeIndex;
               return (
                 <button
-                  key={slide.id}
+                  key={slide.id || idx}
                   type="button"
                   onClick={() => goToSlide(idx)}
                   className={cn(

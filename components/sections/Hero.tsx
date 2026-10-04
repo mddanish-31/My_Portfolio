@@ -4,8 +4,26 @@ import { GraduationCap, CalendarDays, Code2, BriefcaseBusiness, MapPin, ArrowRig
 import { portfolioData } from '@/data/portfolio';
 import { Button } from '@/components/ui/Button';
 import { MetadataItem } from '@/components/ui/MetadataItem';
+import { resolveMediaUrl } from '@/lib/cms/media';
+import type { HeroContent } from '@/lib/cms/types';
 
-export const Hero: React.FC = () => {
+export interface HeroProps {
+  content?: HeroContent;
+}
+
+export const Hero: React.FC<HeroProps> = ({ content }) => {
+  const eyebrow = content?.eyebrow || "Hello, I'm";
+  const firstName = content?.firstName || portfolioData.personal.firstName;
+  const lastName = content?.lastName || portfolioData.personal.lastName;
+  const role = content?.role || "FULL-STACK DEVELOPER";
+  const subtitle = content?.subtitle || portfolioData.personal.subtitle;
+  const tagline = content?.tagline || portfolioData.personal.tagline;
+  const location = content?.location || portfolioData.personal.location;
+  const portraitUrl = resolveMediaUrl(content?.portraitUrl, "/images/portrait/danish-portrait-2x.png");
+  const posterText = content?.posterText || "PORTFOLIO";
+  const primaryCta = content?.primaryCta || { label: "View My Work", href: "#projects" };
+  const secondaryCta = content?.secondaryCta || { label: "Let's Talk", href: "#contact" };
+  const metadata = content?.metadata || portfolioData.metadata;
   return (
     <section
       id="home"
@@ -34,7 +52,7 @@ export const Hero: React.FC = () => {
           aria-hidden="true"
         >
           <span className="text-[25vw] sm:text-[24vw] lg:text-[22vw] xl:text-[295px] font-bold tracking-[-0.03em] leading-[0.80] uppercase text-[#C41528] font-poster block text-center w-full whitespace-nowrap scale-x-[1.12] sm:scale-x-[1.16] lg:scale-x-[1.22] xl:scale-x-[1.26] origin-center">
-            PORTFOLIO
+            {posterText}
           </span>
         </div>
 
@@ -51,52 +69,52 @@ export const Hero: React.FC = () => {
               {/* Thingós Editorial Italic Serif Introduction */}
               <div className="flex items-center gap-2 pl-0.5">
                 <span className="font-thingos italic text-2xl xl:text-3xl text-[#E8DCC8] font-semibold tracking-wide">
-                  Hello, I&apos;m
+                  {eyebrow}
                 </span>
               </div>
 
               {/* Stacked Name: MD. DANISH RAZA (Montega Luxury Editorial Serif) */}
               <div className="flex flex-col select-none space-y-1 pt-0.5">
                 <span className="text-4xl sm:text-5xl xl:text-[3.5rem] font-bold uppercase text-white tracking-[-0.02em] leading-[1.02] font-serif drop-shadow-md">
-                  {portfolioData.personal.firstName}
+                  {firstName}
                 </span>
                 <span className="text-4xl sm:text-5xl xl:text-[3.5rem] font-bold uppercase text-white tracking-[-0.02em] leading-[1.02] font-serif drop-shadow-md whitespace-nowrap">
-                  {portfolioData.personal.lastName}
+                  {lastName}
                 </span>
               </div>
 
               {/* Red Role (Montega Editorial Serif) */}
               <div className="flex flex-col pt-1">
                 <span className="text-xl sm:text-2xl xl:text-[1.65rem] font-bold uppercase text-crimson tracking-tight font-serif leading-tight">
-                  FULL-STACK DEVELOPER
+                  {role}
                 </span>
               </div>
 
               {/* Subtitle & Tagline (Clean Modern Sans) */}
               <div className="space-y-1.5 pt-0.5">
                 <p className="text-xs font-bold tracking-wider text-neutral-300 uppercase font-sans">
-                  {portfolioData.personal.subtitle}
+                  {subtitle}
                 </p>
                 <p className="text-xs text-neutral-400 leading-relaxed font-sans">
-                  {portfolioData.personal.tagline}
+                  {tagline}
                 </p>
               </div>
 
               {/* Location Badge (Clean Sans) */}
               <div className="inline-flex items-center gap-1.5 text-xs font-semibold tracking-wider text-neutral-300 uppercase pt-1 font-sans">
                 <MapPin size={14} className="text-crimson" />
-                <span>BASED IN: {portfolioData.personal.location}</span>
+                <span>BASED IN: {location}</span>
               </div>
 
               {/* CTA Buttons (Clean Sans) */}
               <div className="flex items-center gap-3 pt-3">
-                <Button href="#projects" variant="primary" size="md">
-                  <span>View My Work</span>
+                <Button href={primaryCta.href} variant="primary" size="md">
+                  <span>{primaryCta.label}</span>
                   <ArrowRight size={15} className="ml-1.5" />
                 </Button>
 
-                <Button href="#contact" variant="outline" size="md">
-                  <span>Let&apos;s Talk</span>
+                <Button href={secondaryCta.href} variant="outline" size="md">
+                  <span>{secondaryCta.label}</span>
                 </Button>
               </div>
             </div>
@@ -105,8 +123,8 @@ export const Hero: React.FC = () => {
             <div className="absolute bottom-0 left-1/2 -translate-x-1/2 flex justify-center items-end pointer-events-none select-none z-10 h-[560px] xl:h-[620px]">
               <div className="relative w-[380px] xl:w-[440px] h-[560px] xl:h-[620px]">
                 <Image
-                  src="/images/portrait/danish-portrait-2x.png"
-                  alt="Md. Danish Raza - Full-Stack Developer Portrait"
+                  src={portraitUrl}
+                  alt={`${firstName} ${lastName} - Portrait`}
                   fill
                   priority
                   quality={95}
@@ -120,26 +138,26 @@ export const Hero: React.FC = () => {
             <div className="w-[260px] xl:w-[280px] flex flex-col justify-end space-y-6 pb-6 relative z-20 ml-auto">
               <MetadataItem
                 icon={GraduationCap}
-                label={portfolioData.metadata.currently.label}
-                value={portfolioData.metadata.currently.items}
+                label={metadata.currently.label}
+                value={metadata.currently.items}
               />
 
               <MetadataItem
                 icon={CalendarDays}
-                label={portfolioData.metadata.graduating.label}
-                value={portfolioData.metadata.graduating.items}
+                label={metadata.graduating.label}
+                value={metadata.graduating.items}
               />
 
               <MetadataItem
                 icon={Code2}
-                label={portfolioData.metadata.focusedOn.label}
-                value={portfolioData.metadata.focusedOn.value}
+                label={metadata.focusedOn.label}
+                value={metadata.focusedOn.value}
               />
 
               <MetadataItem
                 icon={BriefcaseBusiness}
-                label={portfolioData.metadata.openFor.label}
-                value={portfolioData.metadata.openFor.items}
+                label={metadata.openFor.label}
+                value={metadata.openFor.items}
               />
             </div>
 
@@ -151,8 +169,8 @@ export const Hero: React.FC = () => {
             {/* 1. Mobile Portrait (Centered & Proportional) */}
             <div className="relative w-[240px] sm:w-[300px] md:w-[340px] h-[320px] sm:h-[400px] md:h-[450px] pointer-events-none select-none">
               <Image
-                src="/images/portrait/danish-portrait-2x.png"
-                alt="Md. Danish Raza - Full-Stack Developer Portrait"
+                src={portraitUrl}
+                alt={`${firstName} ${lastName} - Portrait`}
                 fill
                 priority
                 quality={95}
@@ -164,46 +182,46 @@ export const Hero: React.FC = () => {
             {/* 2. Identity Group: Hello, I'm -> MD. DANISH RAZA -> FULL-STACK DEVELOPER */}
             <div className="flex flex-col items-center space-y-2">
               <span className="font-thingos italic text-xl sm:text-2xl text-[#E8DCC8] font-semibold tracking-wide">
-                Hello, I&apos;m
+                {eyebrow}
               </span>
 
               <div className="flex flex-col select-none space-y-1">
                 <span className="text-3xl sm:text-4xl font-bold uppercase text-white tracking-tight leading-[1.05] font-serif">
-                  {portfolioData.personal.firstName}
+                  {firstName}
                 </span>
                 <span className="text-3xl sm:text-4xl font-bold uppercase text-white tracking-tight leading-[1.05] font-serif">
-                  {portfolioData.personal.lastName}
+                  {lastName}
                 </span>
               </div>
 
               <span className="text-base sm:text-xl font-bold uppercase text-crimson tracking-tight font-serif pt-0.5">
-                FULL-STACK DEVELOPER
+                {role}
               </span>
             </div>
 
             {/* 3. Subheading, Description & Location */}
             <div className="space-y-2 max-w-md px-4">
               <p className="text-xs font-bold tracking-wider text-neutral-300 uppercase font-sans">
-                {portfolioData.personal.subtitle}
+                {subtitle}
               </p>
               <p className="text-xs text-neutral-400 leading-relaxed font-sans">
-                {portfolioData.personal.tagline}
+                {tagline}
               </p>
               <div className="inline-flex items-center gap-1.5 text-xs font-semibold tracking-wider text-neutral-300 uppercase pt-1 font-sans">
                 <MapPin size={13} className="text-crimson" />
-                <span>BASED IN: {portfolioData.personal.location}</span>
+                <span>BASED IN: {location}</span>
               </div>
             </div>
 
             {/* 4. CTA Buttons */}
             <div className="flex flex-wrap items-center justify-center gap-3 pt-2 w-full max-w-xs sm:max-w-none px-4">
-              <Button href="#projects" variant="primary" size="md" className="w-full sm:w-auto min-h-[44px]">
-                <span>View My Work</span>
+              <Button href={primaryCta.href} variant="primary" size="md" className="w-full sm:w-auto min-h-[44px]">
+                <span>{primaryCta.label}</span>
                 <ArrowRight size={14} className="ml-1.5" />
               </Button>
 
-              <Button href="#contact" variant="outline" size="md" className="w-full sm:w-auto min-h-[44px]">
-                <span>Let&apos;s Talk</span>
+              <Button href={secondaryCta.href} variant="outline" size="md" className="w-full sm:w-auto min-h-[44px]">
+                <span>{secondaryCta.label}</span>
               </Button>
             </div>
 
@@ -211,23 +229,23 @@ export const Hero: React.FC = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 w-full pt-8 border-t border-white/[0.08] text-left px-2 sm:px-4">
               <MetadataItem
                 icon={GraduationCap}
-                label={portfolioData.metadata.currently.label}
-                value={portfolioData.metadata.currently.items}
+                label={metadata.currently.label}
+                value={metadata.currently.items}
               />
               <MetadataItem
                 icon={CalendarDays}
-                label={portfolioData.metadata.graduating.label}
-                value={portfolioData.metadata.graduating.items}
+                label={metadata.graduating.label}
+                value={metadata.graduating.items}
               />
               <MetadataItem
                 icon={Code2}
-                label={portfolioData.metadata.focusedOn.label}
-                value={portfolioData.metadata.focusedOn.value}
+                label={metadata.focusedOn.label}
+                value={metadata.focusedOn.value}
               />
               <MetadataItem
                 icon={BriefcaseBusiness}
-                label={portfolioData.metadata.openFor.label}
-                value={portfolioData.metadata.openFor.items}
+                label={metadata.openFor.label}
+                value={metadata.openFor.items}
               />
             </div>
 

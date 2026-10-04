@@ -6,6 +6,7 @@ import {
   ContactBrandType,
   ContactCardItem,
 } from '@/data/contact';
+import type { ContactContent } from '@/lib/cms/types';
 import { cn } from '@/lib/utils';
 import {
   ArrowRight,
@@ -137,7 +138,11 @@ const BrandIcon: React.FC<{ type: ContactBrandType; className?: string }> = ({
 // =========================================================================
 // MAIN CONTACT / LET'S CONNECT SECTION COMPONENT
 // =========================================================================
-export const Contact: React.FC = () => {
+export interface ContactProps {
+  content?: ContactContent;
+}
+
+export const Contact: React.FC<ContactProps> = ({ content }) => {
   const [isVisible, setIsVisible] = useState<boolean>(false);
   const sectionRef = useRef<HTMLElement>(null);
 
@@ -160,16 +165,18 @@ export const Contact: React.FC = () => {
     return () => observer.disconnect();
   }, []);
 
-  const {
-    chapter,
-    eyebrow,
-    heading,
-    subheading,
-    topicsTitle,
-    topics,
-    cards,
-    openToBanner,
-  } = contactData;
+  const chapter = content?.chapter || contactData.chapter;
+  const eyebrow = content?.eyebrow || contactData.eyebrow;
+  const heading = content?.heading || contactData.heading;
+  const subheading = content?.subheading || contactData.subheading;
+  const topicsTitle = content?.topicsTitle || contactData.topicsTitle;
+  const topics = content?.topics || contactData.topics;
+  const cards = content?.cards || contactData.cards;
+  const openToBanner = content?.openToBanner || contactData.openToBanner;
+
+  const headingLines = Array.isArray(heading)
+    ? heading
+    : [heading || "LET'S BUILD", 'TOGETHER.'];
 
   return (
     <section
@@ -221,10 +228,10 @@ export const Contact: React.FC = () => {
               </div>
 
               <h2 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold uppercase text-white font-editorial tracking-tight leading-[0.95] drop-shadow-[0_2px_14px_rgba(0,0,0,0.8)]">
-                {heading[0]}
+                {headingLines[0]}
                 <br />
                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-white via-neutral-100 to-neutral-400">
-                  {heading[1]}
+                  {headingLines[1]}
                 </span>
               </h2>
             </div>

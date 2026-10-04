@@ -7,6 +7,7 @@ import {
   ExperienceItem,
   ExperienceCategory,
 } from '@/data/experience';
+import type { ExperienceContent } from '@/lib/cms/types';
 import { cn } from '@/lib/utils';
 import {
   Briefcase,
@@ -22,7 +23,12 @@ import {
   Layers,
 } from 'lucide-react';
 
-export const Experience: React.FC = () => {
+export interface ExperienceProps {
+  content?: ExperienceContent;
+}
+
+export const Experience: React.FC<ExperienceProps> = ({ content }) => {
+  const groups = content?.groups && content.groups.length > 0 ? content.groups : experienceGroups;
   const [activeFilter, setActiveFilter] = useState<string>('ALL');
   const [hoveredCardId, setHoveredCardId] = useState<string | null>(null);
   const [isVisible, setIsVisible] = useState<boolean>(false);
@@ -49,8 +55,8 @@ export const Experience: React.FC = () => {
 
   // Filter visible groups
   const displayedGroups = activeFilter === 'ALL'
-    ? experienceGroups
-    : experienceGroups.filter((g) => g.id === activeFilter);
+    ? groups
+    : groups.filter((g) => g.id === activeFilter);
 
   // Group Category Icon Helper
   const getCategoryIcon = (category: ExperienceCategory) => {
@@ -256,21 +262,21 @@ export const Experience: React.FC = () => {
                                 {item.organization}
                               </span>
                               {item.organizationType && (
-                                <>
+                                <span className="flex items-center gap-2">
                                   <span className="text-neutral-600">•</span>
                                   <span className="text-neutral-400 uppercase text-[11px]">
                                     {item.organizationType}
                                   </span>
-                                </>
+                                </span>
                               )}
                               {item.location && (
-                                <>
+                                <span className="flex items-center gap-2">
                                   <span className="text-neutral-600">•</span>
                                   <span className="text-neutral-400 flex items-center gap-1 text-[11px]">
                                     <MapPin size={11} className="text-neutral-500" />
                                     <span>{item.location}</span>
                                   </span>
-                                </>
+                                </span>
                               )}
                             </div>
                           </div>
@@ -304,7 +310,7 @@ export const Experience: React.FC = () => {
                           <ul className="space-y-2">
                             {item.contributions.map((c, i) => (
                               <li
-                                key={i}
+                                key={c || i}
                                 className="text-xs sm:text-sm text-neutral-300 font-light leading-relaxed flex items-start gap-2.5"
                               >
                                 <span className="text-crimson font-bold text-sm leading-none mt-1 shrink-0">

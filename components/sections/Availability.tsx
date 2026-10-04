@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { availabilityData } from '@/data/availability';
+import type { AvailabilityContent } from '@/lib/cms/types';
 import { cn } from '@/lib/utils';
 import {
   ArrowRight,
@@ -13,7 +14,11 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 
-export const Availability: React.FC = () => {
+export interface AvailabilityProps {
+  content?: AvailabilityContent;
+}
+
+export const Availability: React.FC<AvailabilityProps> = ({ content }) => {
   const [isVisible, setIsVisible] = useState<boolean>(false);
   const sectionRef = useRef<HTMLElement>(null);
 
@@ -36,20 +41,22 @@ export const Availability: React.FC = () => {
     return () => observer.disconnect();
   }, []);
 
-  const {
-    chapter,
-    eyebrow,
-    statusLabel,
-    statusBadge,
-    statusTitle,
-    statusSubtitle,
-    academicMeta,
-    heading,
-    message,
-    opportunitiesTitle,
-    opportunities,
-    cta,
-  } = availabilityData;
+  const data = content || availabilityData;
+  const chapter = data.chapter || availabilityData.chapter;
+  const eyebrow = data.eyebrow || availabilityData.eyebrow;
+  const statusLabel = data.statusLabel || availabilityData.statusLabel;
+  const statusBadge = data.statusBadge || availabilityData.statusBadge;
+  const statusTitle = data.statusTitle || availabilityData.statusTitle;
+  const statusSubtitle = data.statusSubtitle || availabilityData.statusSubtitle;
+  const academicMeta = data.academicMeta || availabilityData.academicMeta;
+  const heading = data.heading || availabilityData.heading;
+  const message = data.message || availabilityData.message;
+  const opportunitiesTitle = data.opportunitiesTitle || availabilityData.opportunitiesTitle;
+  const opportunities =
+    data.opportunities && data.opportunities.length > 0
+      ? data.opportunities
+      : availabilityData.opportunities;
+  const cta = data.cta || availabilityData.cta;
 
   return (
     <section
@@ -132,13 +139,19 @@ export const Availability: React.FC = () => {
 
                 {/* Large Editorial Headline */}
                 <h3 className="w-full max-w-full font-bold uppercase text-white font-editorial tracking-tight leading-[0.92] drop-shadow-[0_2px_14px_rgba(0,0,0,0.8)] text-3xl sm:text-4xl lg:text-[2.15rem] xl:text-[2.55rem] 2xl:text-[2.85rem]">
-                  {statusTitle[0]}
-                  <br />
-                  {statusTitle[1]}
-                  <br />
-                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-white via-neutral-100 to-neutral-400">
-                    {statusTitle[2]}
-                  </span>
+                  {Array.isArray(statusTitle) ? (
+                    <span>
+                      {statusTitle[0]}
+                      <br />
+                      {statusTitle[1]}
+                      <br />
+                      <span className="text-transparent bg-clip-text bg-gradient-to-r from-white via-neutral-100 to-neutral-400">
+                        {statusTitle.slice(2).join(' ')}
+                      </span>
+                    </span>
+                  ) : (
+                    statusTitle
+                  )}
                 </h3>
 
                 {/* Animated Status Pill */}
@@ -182,13 +195,19 @@ export const Availability: React.FC = () => {
                 </div>
 
                 <h4 className="w-full max-w-full font-bold uppercase text-white font-editorial tracking-tight leading-[0.95] text-2xl sm:text-3xl lg:text-[1.85rem] xl:text-[2.35rem] 2xl:text-[2.6rem]">
-                  {heading[0]}
-                  <br />
-                  {heading[1]}
-                  <br />
-                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-white via-neutral-100 to-neutral-400">
-                    {heading[2]}
-                  </span>
+                  {Array.isArray(heading) ? (
+                    <span>
+                      {heading[0]}
+                      <br />
+                      {heading[1]}
+                      <br />
+                      <span className="text-transparent bg-clip-text bg-gradient-to-r from-white via-neutral-100 to-neutral-400">
+                        {heading.slice(2).join(' ')}
+                      </span>
+                    </span>
+                  ) : (
+                    heading
+                  )}
                 </h4>
 
                 <p className="text-sm sm:text-base text-[#ded8cf] leading-relaxed font-light pt-2 font-sans">
@@ -237,11 +256,11 @@ export const Availability: React.FC = () => {
                         </span>
 
                         <div className="min-w-0">
-                          <span className="text-xs sm:text-sm font-bold uppercase text-neutral-200 group-hover:text-white font-sans truncate block transition-colors">
+                          <span className="text-xs sm:text-sm font-bold uppercase text-neutral-200 group-hover:text-white font-sans break-words leading-snug block transition-colors">
                             {item.title}
                           </span>
                           {item.subtitle && (
-                            <span className="text-[10.5px] font-mono text-neutral-500 group-hover:text-neutral-400 truncate block">
+                            <span className="text-[10.5px] font-mono text-neutral-500 group-hover:text-neutral-400 break-words leading-snug block">
                               {item.subtitle}
                             </span>
                           )}

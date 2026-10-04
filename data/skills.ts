@@ -1,68 +1,125 @@
 export type ProficiencyLevel = 'Advanced' | 'Intermediate' | 'Beginner';
 
+export type SkillCategoryId = string;
+
 export interface TechSkill {
   id: string;
   name: string;
-  category: 'development' | 'languages' | 'aiml' | 'databases' | 'tools' | 'design';
-  categoryLabel: string;
+  category: string;
+  categoryLabel?: string;
   level: ProficiencyLevel;
   role: string;
   description: string;
-  usage: string[];
-  related: string[];
+  usage?: string[];
+  related?: string[];
   iconType: string;
+  visible?: boolean;
+  order?: number;
 }
 
-export interface SkillCategoryInfo {
-  id: 'development' | 'languages' | 'aiml' | 'databases' | 'tools' | 'design';
-  num: string;
+export interface SkillCategory {
+  id: string;
   name: string;
-  label: string;
-  description: string;
+  slug: string;
+  description?: string;
+  label?: string;
+  num?: string;
+  order?: number;
+  visible?: boolean;
 }
 
-export const skillCategoriesData: SkillCategoryInfo[] = [
+export type SkillCategoryInfo = SkillCategory;
+
+/**
+ * Canonical Normalizer: Maps any technical or legacy category ID to consistent canonical category slug.
+ */
+export function normalizeSkillCategory(
+  category: string | undefined | null
+): string {
+  if (!category) return 'development';
+  const c = category.toLowerCase().trim();
+  if (
+    c === 'development' ||
+    c === 'frontend' ||
+    c === 'backend' ||
+    c === 'computer-science' ||
+    c === 'dev' ||
+    c === 'fullstack'
+  ) {
+    return 'development';
+  }
+  if (c === 'languages' || c === 'language' || c === 'lang') {
+    return 'languages';
+  }
+  if (c === 'ai-ml' || c === 'aiml' || c === 'ai' || c === 'ml' || c === 'ai_ml') {
+    return 'ai-ml';
+  }
+  if (c === 'databases' || c === 'database' || c === 'db') {
+    return 'databases';
+  }
+  if (
+    c === 'tools-platforms' ||
+    c === 'tools' ||
+    c === 'platforms' ||
+    c === 'tooling' ||
+    c === 'platform' ||
+    c === 'devops'
+  ) {
+    return 'tools-platforms';
+  }
+  return c;
+}
+
+export const skillCategoriesData: SkillCategory[] = [
   {
     id: 'development',
+    name: 'Development',
+    slug: 'development',
+    order: 1,
+    visible: true,
     num: '01',
-    name: 'DEVELOPMENT',
-    label: 'Full-Stack Web Architecture',
-    description: 'Modern frameworks, libraries, and runtime environments for building end-to-end web applications.',
+    label: 'Full-Stack Web & Software Architecture',
+    description: 'Modern frameworks, backend runtimes, APIs, and foundational computational problem solving.',
   },
   {
     id: 'languages',
+    name: 'Languages',
+    slug: 'languages',
+    order: 2,
+    visible: true,
     num: '02',
-    name: 'LANGUAGES',
-    label: 'Programming & Scripting',
-    description: 'Core compiled and interpreted languages for web systems, algorithms, and computer science foundations.',
+    label: 'Programming & Core Systems',
+    description: 'Core compiled and interpreted languages for web systems, algorithms, and computational logic.',
   },
   {
-    id: 'aiml',
-    num: '03',
+    id: 'ai-ml',
     name: 'AI / ML',
+    slug: 'ai-ml',
+    order: 3,
+    visible: true,
+    num: '03',
     label: 'Computer Vision & Intelligent Systems',
-    description: 'Computer vision, gesture tracking, machine learning foundations, and AI API integrations.',
+    description: 'Computer vision, real-time gesture tracking, and machine learning pipelines.',
   },
   {
     id: 'databases',
+    name: 'Databases',
+    slug: 'databases',
+    order: 4,
+    visible: true,
     num: '04',
-    name: 'DATABASES',
-    label: 'Data Storage & ORM',
-    description: 'Relational and document databases with schema design, indexing, and query operations.',
+    label: 'Data Storage & Relational Engines',
+    description: 'Relational and document database systems with normalized schema design and ACID integrity.',
   },
   {
-    id: 'tools',
+    id: 'tools-platforms',
+    name: 'Tools & Platforms',
+    slug: 'tools-platforms',
+    order: 5,
+    visible: true,
     num: '05',
-    name: 'TOOLS & PLATFORMS',
-    label: 'DevOps & Tooling Ecosystem',
-    description: 'Version control, cloud deployment, container workflows, and developer productivity tools.',
-  },
-  {
-    id: 'design',
-    num: '06',
-    name: 'UI / UX DESIGN',
-    label: 'Design Systems & Interfaces',
-    description: 'Visual hierarchy, liquid-glass aesthetics, component tokens, and responsive layout prototyping.',
+    label: 'DevOps & Collaboration Tooling',
+    description: 'Distributed version control, remote collaboration, and cloud deployment pipelines.',
   },
 ];
 
@@ -76,7 +133,7 @@ export const allSkillsData: TechSkill[] = [
     category: 'development',
     categoryLabel: 'DEVELOPMENT',
     level: 'Intermediate',
-    role: 'FRONTEND LIBRARY',
+    role: 'Frontend Development',
     description: 'Building interactive and responsive interfaces with modular component architecture and declarative UI paradigms.',
     usage: [
       'Reusable modular component systems',
@@ -84,8 +141,9 @@ export const allSkillsData: TechSkill[] = [
       'High-performance virtual DOM rendering',
       'Fluid interactive micro-animations',
     ],
-    related: ['Next.js', 'TypeScript', 'Tailwind CSS', 'Node.js'],
+    related: ['Next.js', 'TypeScript', 'Node.js'],
     iconType: 'react',
+    visible: true,
   },
   {
     id: 'nextjs',
@@ -93,7 +151,7 @@ export const allSkillsData: TechSkill[] = [
     category: 'development',
     categoryLabel: 'DEVELOPMENT',
     level: 'Intermediate',
-    role: 'FULL-STACK FRAMEWORK',
+    role: 'Frontend Development',
     description: 'Production React framework using App Router for server-side rendering, route handlers, and performance optimization.',
     usage: [
       'Server-Side Rendering (SSR) & Static Generation',
@@ -101,25 +159,9 @@ export const allSkillsData: TechSkill[] = [
       'Image, font, and script optimization',
       'Full-stack API endpoints & middleware',
     ],
-    related: ['React', 'TypeScript', 'Tailwind CSS', 'Vercel'],
+    related: ['React', 'TypeScript', 'Vercel'],
     iconType: 'nextjs',
-  },
-  {
-    id: 'typescript',
-    name: 'TypeScript',
-    category: 'development',
-    categoryLabel: 'DEVELOPMENT',
-    level: 'Intermediate',
-    role: 'TYPED JAVASCRIPT',
-    description: 'Strict type safety layer across frontend and backend codebases, preventing runtime bugs and enhancing DX.',
-    usage: [
-      'Strict interfaces and generic data types',
-      'End-to-end API response contract validation',
-      'Component prop validation & type safety',
-      'Refactor confidence in growing codebases',
-    ],
-    related: ['React', 'Next.js', 'Node.js', 'Express.js'],
-    iconType: 'typescript',
+    visible: true,
   },
   {
     id: 'nodejs',
@@ -127,7 +169,7 @@ export const allSkillsData: TechSkill[] = [
     category: 'development',
     categoryLabel: 'DEVELOPMENT',
     level: 'Intermediate',
-    role: 'BACKEND RUNTIME',
+    role: 'Backend Development',
     description: 'Asynchronous event-driven runtime used for building scalable server-side applications and RESTful APIs.',
     usage: [
       'Asynchronous non-blocking I/O operations',
@@ -135,8 +177,9 @@ export const allSkillsData: TechSkill[] = [
       'Authentication, JWT, and session workflows',
       'Utility scripts and background processes',
     ],
-    related: ['Express.js', 'MongoDB', 'TypeScript', 'Postman'],
+    related: ['Express.js', 'MongoDB', 'TypeScript'],
     iconType: 'nodejs',
+    visible: true,
   },
   {
     id: 'express',
@@ -144,93 +187,154 @@ export const allSkillsData: TechSkill[] = [
     category: 'development',
     categoryLabel: 'DEVELOPMENT',
     level: 'Intermediate',
-    role: 'WEB BACKEND FRAMEWORK',
+    role: 'Backend Development',
     description: 'Minimalist web framework for Node.js powering modular routing, middleware pipelines, and API services.',
     usage: [
       'Modular RESTful routing architecture',
       'Custom middleware for auth, CORS & logging',
       'Error handling and centralized controllers',
-      'Database integration with Mongoose & Prisma',
+      'Database integration with Mongoose',
     ],
-    related: ['Node.js', 'MongoDB', 'TypeScript', 'Postman'],
+    related: ['Node.js', 'MongoDB', 'TypeScript'],
     iconType: 'express',
+    visible: true,
   },
   {
-    id: 'tailwind',
-    name: 'Tailwind CSS',
+    id: 'rest-apis',
+    name: 'REST APIs',
     category: 'development',
     categoryLabel: 'DEVELOPMENT',
-    level: 'Advanced',
-    role: 'UTILITY-FIRST CSS',
-    description: 'Utility CSS framework used for building custom design systems, liquid-glass cards, and responsive layouts.',
+    level: 'Intermediate',
+    role: 'Backend Development',
+    description: 'Designing and integrating scalable RESTful web services with standardized HTTP methods, JSON schemas, and clean status codes.',
     usage: [
-      'Custom design token implementation',
-      'Liquid-glass styling & backdrop blur filters',
-      'Mobile-first responsive layout grids',
-      'Fast compilation with JIT engine',
+      'RESTful architecture and clean URL endpoint conventions',
+      'CRUD operations and JSON request/response payloads',
+      'Token-based authentication headers and CORS handling',
+      'API endpoint testing and documentation',
     ],
-    related: ['React', 'Next.js', 'Figma', 'TypeScript'],
-    iconType: 'tailwind',
+    related: ['Node.js', 'Express.js', 'Postman'],
+    iconType: 'postman',
+    visible: true,
+  },
+  {
+    id: 'dsa',
+    name: 'Data Structures & Algorithms',
+    category: 'development',
+    categoryLabel: 'DEVELOPMENT',
+    level: 'Intermediate',
+    role: 'Computer Science & Problem Solving',
+    description: 'Core computational fundamentals including arrays, linked lists, trees, graphs, dynamic programming, and asymptotic complexity.',
+    usage: [
+      'Time and space complexity analysis (Big-O)',
+      'Linear and non-linear data structures implementation',
+      'Graph traversal (BFS/DFS) and shortest path logic',
+      'Divide and conquer algorithmic strategies',
+    ],
+    related: ['C++', 'Competitive Programming', 'Python'],
+    iconType: 'cpp',
+    visible: true,
+  },
+  {
+    id: 'competitive-programming',
+    name: 'Competitive Programming',
+    category: 'development',
+    categoryLabel: 'DEVELOPMENT',
+    level: 'Intermediate',
+    role: 'Computer Science & Problem Solving',
+    description: 'Algorithmic problem solving under strict execution time and memory limits on competitive platforms like LeetCode and Codeforces.',
+    usage: [
+      'Fast I/O and optimal time complexity implementations',
+      'Mathematical computations and modular arithmetic',
+      'Greedy algorithms, two pointers, and binary search',
+      'Debugging edge cases and performance bottlenecks',
+    ],
+    related: ['C++', 'Data Structures & Algorithms', 'Python'],
+    iconType: 'code2',
+    visible: true,
+  },
+  {
+    id: 'oop',
+    name: 'Object-Oriented Programming',
+    category: 'development',
+    categoryLabel: 'DEVELOPMENT',
+    level: 'Intermediate',
+    role: 'Computer Science & Problem Solving',
+    description: 'Modular software engineering using OOP principles: encapsulation, inheritance, polymorphism, and abstraction.',
+    usage: [
+      'Class hierarchies, interfaces, and abstract classes',
+      'Design patterns (Singleton, Factory, Observer)',
+      'Coupling reduction and high cohesion architecture',
+      'Code reusability and maintainable systems',
+    ],
+    related: ['Java', 'C++', 'TypeScript'],
+    iconType: 'java',
+    visible: true,
   },
 
   // ==========================================
   // 02 LANGUAGES
   // ==========================================
   {
-    id: 'lang-python',
+    id: 'javascript',
+    name: 'JavaScript',
+    category: 'languages',
+    categoryLabel: 'LANGUAGES',
+    level: 'Advanced',
+    role: 'Programming & Development',
+    description: 'Deep understanding of modern ECMAScript standards, asynchronous promises, event loop, and browser DOM APIs.',
+    usage: [
+      'Async/await, Promises, and fetch pipelines',
+      'Functional array methods and destructuring',
+      'Browser Web APIs and event handling',
+      'Dynamic client-side interactivity',
+    ],
+    related: ['TypeScript', 'React', 'Node.js'],
+    iconType: 'javascript',
+    visible: true,
+  },
+  {
+    id: 'typescript',
+    name: 'TypeScript',
+    category: 'languages',
+    categoryLabel: 'LANGUAGES',
+    level: 'Intermediate',
+    role: 'Programming & Development',
+    description: 'Primary language for modern web applications, combining JavaScript flexibility with compile-time type safety.',
+    usage: [
+      'Type definitions, Discriminated Unions & Generics',
+      'Strict compiler configuration and linting',
+      'End-to-end API response contract validation',
+      'Full-stack type sharing between client and server',
+    ],
+    related: ['JavaScript', 'React', 'Node.js', 'Next.js'],
+    iconType: 'typescript',
+    visible: true,
+  },
+  {
+    id: 'python',
     name: 'Python',
     category: 'languages',
     categoryLabel: 'LANGUAGES',
     level: 'Advanced',
-    role: 'GENERAL PURPOSE & SCRIPTING',
+    role: 'Programming & Development',
     description: 'Versatile language used for scripting, data analysis, computer vision experimentation, and academic projects.',
     usage: [
       'Automation scripts and data processing',
       'Computer vision with OpenCV & MediaPipe',
       'Algorithm testing and rapid prototyping',
     ],
-    related: ['OpenCV', 'MediaPipe', 'C++', 'Java'],
+    related: ['OpenCV', 'MediaPipe', 'C++'],
     iconType: 'python',
+    visible: true,
   },
   {
-    id: 'lang-javascript',
-    name: 'JavaScript (ES6+)',
-    category: 'languages',
-    categoryLabel: 'LANGUAGES',
-    level: 'Advanced',
-    role: 'CORE WEB LANGUAGE',
-    description: 'Deep understanding of modern ECMAScript standards, asynchronous promises, event loop, and browser DOM APIs.',
-    usage: [
-      'Async/await, Promises, and fetch pipelines',
-      'Functional array methods and destructuring',
-      'Browser Web APIs and event handling',
-    ],
-    related: ['TypeScript', 'React', 'Node.js', 'Tailwind CSS'],
-    iconType: 'javascript',
-  },
-  {
-    id: 'lang-typescript',
-    name: 'TypeScript',
-    category: 'languages',
-    categoryLabel: 'LANGUAGES',
-    level: 'Intermediate',
-    role: 'TYPED SCRIPTING',
-    description: 'Primary language for modern web applications, combining JavaScript flexibility with compile-time type safety.',
-    usage: [
-      'Type definitions, Discriminated Unions & Generics',
-      'Strict compiler configuration',
-      'Full-stack type sharing between client and server',
-    ],
-    related: ['JavaScript', 'React', 'Node.js', 'Next.js'],
-    iconType: 'typescript',
-  },
-  {
-    id: 'lang-cpp',
+    id: 'cpp',
     name: 'C++',
     category: 'languages',
     categoryLabel: 'LANGUAGES',
     level: 'Intermediate',
-    role: 'OBJECT-ORIENTED SYSTEMS',
+    role: 'Programming & Development',
     description: 'High-performance programming language used for Object-Oriented Programming (OOP) and algorithmic problem solving.',
     usage: [
       'OOP principles: Encapsulation, Inheritance, Polymorphism',
@@ -239,14 +343,15 @@ export const allSkillsData: TechSkill[] = [
     ],
     related: ['C', 'Java', 'Python'],
     iconType: 'cpp',
+    visible: true,
   },
   {
-    id: 'lang-java',
+    id: 'java',
     name: 'Java',
     category: 'languages',
     categoryLabel: 'LANGUAGES',
     level: 'Intermediate',
-    role: 'OBJECT-ORIENTED LANGUAGE',
+    role: 'Programming & Development',
     description: 'Class-based object-oriented programming language studied for robust software design and JVM architectures.',
     usage: [
       'Class hierarchies, interfaces, and abstractions',
@@ -255,14 +360,15 @@ export const allSkillsData: TechSkill[] = [
     ],
     related: ['C++', 'Python', 'TypeScript'],
     iconType: 'java',
+    visible: true,
   },
   {
-    id: 'lang-c',
+    id: 'c',
     name: 'C',
     category: 'languages',
     categoryLabel: 'LANGUAGES',
     level: 'Intermediate',
-    role: 'SYSTEMS PROGRAMMING',
+    role: 'Programming & Development',
     description: 'Foundational language studied for low-level memory management, pointers, and fundamental data structures.',
     usage: [
       'Pointers, dynamic memory allocation & structs',
@@ -271,186 +377,112 @@ export const allSkillsData: TechSkill[] = [
     ],
     related: ['C++', 'Python', 'Java'],
     iconType: 'c',
+    visible: true,
   },
 
   // ==========================================
   // 03 AI / ML
   // ==========================================
   {
-    id: 'ai-python',
-    name: 'Python',
-    category: 'aiml',
-    categoryLabel: 'AI / ML',
-    level: 'Advanced',
-    role: 'AI / ML FOUNDATION',
-    description: 'Core environment for numerical computations, data manipulation, and computer vision scripting.',
-    usage: [
-      'NumPy array operations and matrix calculations',
-      'Data preprocessing and transformation pipelines',
-      'Scripting image and video processing workflows',
-    ],
-    related: ['OpenCV', 'MediaPipe', 'AI / ML Foundations'],
-    iconType: 'python',
-  },
-  {
-    id: 'ai-opencv',
+    id: 'opencv',
     name: 'OpenCV',
-    category: 'aiml',
+    category: 'ai-ml',
     categoryLabel: 'AI / ML',
     level: 'Intermediate',
-    role: 'COMPUTER VISION',
+    role: 'AI & Computer Vision',
     description: 'Open-source computer vision library used for real-time image processing, filtering, and video frame analysis.',
     usage: [
       'Image color space conversion and thresholding',
       'Contour detection and edge analysis',
       'Real-time webcam video stream processing',
     ],
-    related: ['Python', 'MediaPipe', 'AI / ML Foundations'],
+    related: ['Python', 'MediaPipe'],
     iconType: 'opencv',
+    visible: true,
   },
   {
-    id: 'ai-mediapipe',
+    id: 'mediapipe',
     name: 'MediaPipe',
-    category: 'aiml',
+    category: 'ai-ml',
     categoryLabel: 'AI / ML',
     level: 'Intermediate',
-    role: 'GESTURE & VISION PIPELINES',
+    role: 'AI & Computer Vision',
     description: 'Framework by Google for building multimodal real-time vision pipelines such as hand landmark detection and pose estimation.',
     usage: [
       'Hand landmark tracking (21 3D points)',
       'Real-time gesture recognition experiments',
       'Facial and pose landmark detection',
     ],
-    related: ['OpenCV', 'Python', 'AI / ML Foundations'],
+    related: ['OpenCV', 'Python'],
     iconType: 'mediapipe',
-  },
-  {
-    id: 'ai-foundations',
-    name: 'AI / ML Foundations',
-    category: 'aiml',
-    categoryLabel: 'AI / ML',
-    level: 'Intermediate',
-    role: 'THEORY & MODELS',
-    description: 'Understanding core machine learning principles, classification/regression models, and neural network basics.',
-    usage: [
-      'Supervised learning workflows (Linear/Logistic Regression)',
-      'Model evaluation metrics (Accuracy, Precision, Recall)',
-      'Neural network fundamentals and activation functions',
-    ],
-    related: ['Python', 'OpenCV', 'LLM & AI APIs'],
-    iconType: 'neural',
-  },
-  {
-    id: 'ai-llm-api',
-    name: 'LLM & AI APIs',
-    category: 'aiml',
-    categoryLabel: 'AI / ML',
-    level: 'Beginner',
-    role: 'INTELLIGENT INTEGRATION',
-    description: 'Integrating generative AI capabilities into modern web applications via structured prompts and streaming SDKs.',
-    usage: [
-      'Structured prompt design and deterministic JSON output',
-      'Streaming responses to Next.js user interfaces',
-      'Context-aware assistant and data extraction tools',
-    ],
-    related: ['Next.js', 'TypeScript', 'Node.js'],
-    iconType: 'sparkles',
+    visible: true,
   },
 
   // ==========================================
   // 04 DATABASES
   // ==========================================
   {
-    id: 'db-mongodb',
+    id: 'mongodb',
     name: 'MongoDB',
     category: 'databases',
     categoryLabel: 'DATABASES',
     level: 'Intermediate',
-    role: 'NO-SQL DOCUMENT DATABASE',
+    role: 'Database Development',
     description: 'Document database for dynamic content schemas, user authentication records, and JSON-based application data.',
     usage: [
       'Schema modeling with Mongoose schemas',
       'Document indexing for query performance',
       'Cloud database management on MongoDB Atlas',
     ],
-    related: ['Node.js', 'Express.js', 'Prisma ORM'],
+    related: ['Node.js', 'Express.js', 'MySQL'],
     iconType: 'mongodb',
+    visible: true,
   },
   {
-    id: 'db-mysql',
+    id: 'mysql',
     name: 'MySQL',
     category: 'databases',
     categoryLabel: 'DATABASES',
     level: 'Intermediate',
-    role: 'RELATIONAL SQL ENGINE',
+    role: 'Database Development',
     description: 'Relational database system studied in academic curriculum for table normalization, relational algebra, and ACID integrity.',
     usage: [
       'Normalized schema architectures (1NF to 3NF)',
       'Foreign keys, relational joins, and constraints',
       'Transaction rollbacks and commit management',
     ],
-    related: ['PostgreSQL', 'Prisma ORM', 'Node.js'],
+    related: ['SQL', 'MongoDB', 'Node.js'],
     iconType: 'mysql',
+    visible: true,
   },
   {
-    id: 'db-postgresql',
-    name: 'PostgreSQL',
+    id: 'sql',
+    name: 'SQL',
     category: 'databases',
     categoryLabel: 'DATABASES',
     level: 'Intermediate',
-    role: 'RELATIONAL DATABASE (ACID)',
-    description: 'Advanced open-source relational database used for structured data schemas and dependable transactional integrity.',
+    role: 'Database Development',
+    description: 'Structured Query Language for querying, aggregating, and manipulating relational database management systems.',
     usage: [
-      'Complex joins and filtered analytical queries',
-      'Connection pooling with Prisma and cloud providers',
-      'Relational constraints and indexing strategies',
+      'Complex multi-table SELECT queries with JOINs',
+      'Data definition (DDL) and manipulation (DML)',
+      'Aggregate functions, subqueries, and views',
     ],
-    related: ['MySQL', 'Prisma ORM', 'Node.js'],
-    iconType: 'postgresql',
-  },
-  {
-    id: 'db-prisma',
-    name: 'Prisma ORM',
-    category: 'databases',
-    categoryLabel: 'DATABASES',
-    level: 'Intermediate',
-    role: 'TYPE-SAFE ORM',
-    description: 'Next-generation TypeScript ORM providing auto-generated types, declarative schema modeling, and safe migrations.',
-    usage: [
-      'Declarative schema modeling in schema.prisma',
-      'Auto-generated typed client queries',
-      'Automated schema migrations and database seeding',
-    ],
-    related: ['PostgreSQL', 'MySQL', 'TypeScript', 'Next.js'],
-    iconType: 'prisma',
-  },
-  {
-    id: 'db-redis',
-    name: 'Redis',
-    category: 'databases',
-    categoryLabel: 'DATABASES',
-    level: 'Beginner',
-    role: 'IN-MEMORY STORE',
-    description: 'In-memory key-value data structure store used for caching API responses, rate limiting, and temporary state.',
-    usage: [
-      'Key-value caching with TTL expiration',
-      'API rate limiting and session storage',
-      'Fast retrieval for high-frequency queries',
-    ],
-    related: ['Node.js', 'Express.js', 'MongoDB'],
-    iconType: 'redis',
+    related: ['MySQL', 'MongoDB', 'Node.js'],
+    iconType: 'database',
+    visible: true,
   },
 
   // ==========================================
   // 05 TOOLS & PLATFORMS
   // ==========================================
   {
-    id: 'tool-git',
+    id: 'git',
     name: 'Git',
-    category: 'tools',
+    category: 'tools-platforms',
     categoryLabel: 'TOOLS & PLATFORMS',
     level: 'Advanced',
-    role: 'VERSION CONTROL',
+    role: 'Development & Collaboration',
     description: 'Distributed version control system for source tracking, branching workflows, and commit history management.',
     usage: [
       'Feature branching and merge conflict resolution',
@@ -459,14 +491,15 @@ export const allSkillsData: TechSkill[] = [
     ],
     related: ['GitHub', 'VS Code', 'Vercel'],
     iconType: 'git',
+    visible: true,
   },
   {
-    id: 'tool-github',
+    id: 'github',
     name: 'GitHub',
-    category: 'tools',
+    category: 'tools-platforms',
     categoryLabel: 'TOOLS & PLATFORMS',
     level: 'Advanced',
-    role: 'CODE COLLABORATION',
+    role: 'Development & Collaboration',
     description: 'Cloud hosting for Git repositories, pull request reviews, project tracking, and automated CI workflows.',
     usage: [
       'Remote repository management and collaboration',
@@ -475,30 +508,15 @@ export const allSkillsData: TechSkill[] = [
     ],
     related: ['Git', 'VS Code', 'Vercel'],
     iconType: 'github',
+    visible: true,
   },
   {
-    id: 'tool-vscode',
-    name: 'VS Code',
-    category: 'tools',
-    categoryLabel: 'TOOLS & PLATFORMS',
-    level: 'Advanced',
-    role: 'PRIMARY IDE',
-    description: 'Configured development environment with TypeScript IntelliSense, ESLint, Git integration, and debugging tools.',
-    usage: [
-      'Custom workspace settings and extensions',
-      'ESLint, Prettier, and Tailwind linting integration',
-      'Integrated terminal and breakpoint debugging',
-    ],
-    related: ['TypeScript', 'Git', 'GitHub'],
-    iconType: 'vscode',
-  },
-  {
-    id: 'tool-vercel',
+    id: 'vercel',
     name: 'Vercel',
-    category: 'tools',
+    category: 'tools-platforms',
     categoryLabel: 'TOOLS & PLATFORMS',
     level: 'Intermediate',
-    role: 'CLOUD DEPLOYMENT',
+    role: 'Development & Collaboration',
     description: 'Hosting platform for Next.js and frontend applications with continuous deployment, preview branches, and edge CDN.',
     usage: [
       'Automated Git-push deployments',
@@ -507,134 +525,19 @@ export const allSkillsData: TechSkill[] = [
     ],
     related: ['Next.js', 'React', 'GitHub'],
     iconType: 'vercel',
-  },
-  {
-    id: 'tool-docker',
-    name: 'Docker',
-    category: 'tools',
-    categoryLabel: 'TOOLS & PLATFORMS',
-    level: 'Intermediate',
-    role: 'CONTAINERIZATION',
-    description: 'Containerization tool ensuring consistent environments across development, testing, and production.',
-    usage: [
-      'Writing multi-stage Dockerfiles for Node apps',
-      'Docker Compose orchestration for multi-container apps',
-      'Isolated reproducible development containers',
-    ],
-    related: ['Node.js', 'Git', 'MongoDB'],
-    iconType: 'docker',
-  },
-  {
-    id: 'tool-postman',
-    name: 'Postman',
-    category: 'tools',
-    categoryLabel: 'TOOLS & PLATFORMS',
-    level: 'Intermediate',
-    role: 'API TESTING',
-    description: 'Tool for designing, debugging, and documenting RESTful endpoints, validating request payloads, and testing headers.',
-    usage: [
-      'API endpoint testing with environment variables',
-      'Bearer token and auth header verification',
-      'API collection documentation and export',
-    ],
-    related: ['Express.js', 'Node.js', 'TypeScript'],
-    iconType: 'postman',
-  },
-
-  // ==========================================
-  // 06 UI / UX DESIGN
-  // ==========================================
-  {
-    id: 'design-figma',
-    name: 'Figma',
-    category: 'design',
-    categoryLabel: 'UI / UX DESIGN',
-    level: 'Advanced',
-    role: 'INTERFACE DESIGN',
-    description: 'Creating high-fidelity UI mockups, auto-layout component libraries, interactive prototypes, and design specs.',
-    usage: [
-      'Auto-layout responsive component frames',
-      'Design tokens: color palettes, typography scales',
-      'Interactive prototype transitions and flows',
-    ],
-    related: ['UI / UX Design', 'Design Systems', 'Tailwind CSS'],
-    iconType: 'figma',
-  },
-  {
-    id: 'design-uiux',
-    name: 'UI / UX Design',
-    category: 'design',
-    categoryLabel: 'UI / UX DESIGN',
-    level: 'Intermediate',
-    role: 'USER EXPERIENCE',
-    description: 'Structuring user journeys, visual hierarchy, information architecture, and intuitive screen layouts.',
-    usage: [
-      'Visual hierarchy and typography rhythm',
-      'User journey flow mapping and content prioritization',
-      'Clean interface layouts with balanced whitespace',
-    ],
-    related: ['Figma', 'Design Systems', 'Responsive Architecture'],
-    iconType: 'layout',
-  },
-  {
-    id: 'design-systems',
-    name: 'Design Systems',
-    category: 'design',
-    categoryLabel: 'UI / UX DESIGN',
-    level: 'Intermediate',
-    role: 'DESIGN TOKENS & ATOMS',
-    description: 'Establishing harmonious color palettes, fluid typography hierarchies, consistent spacing systems, and liquid-glass tokens.',
-    usage: [
-      'Editorial serif typography scales',
-      'Liquid-glass translucent surface specifications',
-      'Consistent button, badge, and card atoms',
-    ],
-    related: ['Figma', 'Tailwind CSS', 'UI / UX Design'],
-    iconType: 'palette',
-  },
-  {
-    id: 'design-responsive',
-    name: 'Responsive Architecture',
-    category: 'design',
-    categoryLabel: 'UI / UX DESIGN',
-    level: 'Advanced',
-    role: 'MULTI-DEVICE PERFECTION',
-    description: 'Ensuring seamless visual and interaction experiences across ultra-wide desktop monitors, laptops, tablets, and mobile devices.',
-    usage: [
-      'Fluid clamp() typography and flexible grid layouts',
-      'Mobile-specific touch target optimizations',
-      'Zero layout shifts across viewport breakpoints',
-    ],
-    related: ['Tailwind CSS', 'React', 'Design Systems'],
-    iconType: 'smartphone',
-  },
-  {
-    id: 'design-wireframing',
-    name: 'Wireframing',
-    category: 'design',
-    categoryLabel: 'UI / UX DESIGN',
-    level: 'Intermediate',
-    role: 'CONCEPT & PROTOTYPING',
-    description: 'Rapid low-fidelity layout concepting to validate features and screen flow before visual polish.',
-    usage: [
-      'Low-fidelity wireframe concepting',
-      'Component hierarchy and content planning',
-      'Interactive screen flow validation',
-    ],
-    related: ['Figma', 'UI / UX Design', 'Design Systems'],
-    iconType: 'layout',
+    visible: true,
   },
 ];
 
-// Clean, focused Core Stack items representing Danish's primary stack
+// Clean, focused Core Stack items referencing canonical skill IDs
 export const coreStackItems = [
   { name: 'React', role: 'Frontend', categoryId: 'development', skillId: 'react', icon: 'react' },
   { name: 'Next.js', role: 'Framework', categoryId: 'development', skillId: 'nextjs', icon: 'nextjs' },
-  { name: 'TypeScript', role: 'Language', categoryId: 'development', skillId: 'typescript', icon: 'typescript' },
+  { name: 'TypeScript', role: 'Language', categoryId: 'languages', skillId: 'typescript', icon: 'typescript' },
   { name: 'Node.js', role: 'Runtime', categoryId: 'development', skillId: 'nodejs', icon: 'nodejs' },
   { name: 'Express.js', role: 'Backend', categoryId: 'development', skillId: 'express', icon: 'express' },
-  { name: 'MongoDB', role: 'Database', categoryId: 'databases', skillId: 'db-mongodb', icon: 'mongodb' },
-  { name: 'Git', role: 'Version Control', categoryId: 'tools', skillId: 'tool-git', icon: 'git' },
+  { name: 'MongoDB', role: 'Database', categoryId: 'databases', skillId: 'mongodb', icon: 'mongodb' },
+  { name: 'Git', role: 'Version Control', categoryId: 'tools-platforms', skillId: 'git', icon: 'git' },
 ];
 
 export interface ProcessStep {
