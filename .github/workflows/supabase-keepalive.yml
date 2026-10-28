@@ -1,0 +1,40 @@
+name: Supabase Keep Alive
+
+on:
+  schedule:
+    - cron: "17 4 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  keepalive:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+
+    steps:
+      - name: Check Supabase database
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ -z "$SUPABASE_URL" || -z "$SUPABASE_ANON_KEY" ]]; then
+            echo "Required GitHub secrets are missing."
+            exit 1
+          fi
+
+          curl --fail --silent --show-error \
+            --max-time 20 \
+            --get "$SUPABASE_URL/rest/v1/keepalive" \
+            --data-urlencode "select=id" \
+            --data-urlencode "id=eq.1" \
+            --data-urlencode "limit=1" \
+            --header "apikey: $SUPABASE_ANON_KEY" \
+            --header "Authorization: Bearer $SUPABASE_ANON_KEY" \
+            --output /dev/null
+
+          echo "Supabase health check succeeded."
