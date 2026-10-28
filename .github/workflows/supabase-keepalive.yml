@@ -34,7 +34,6 @@ jobs:
             --data-urlencode "id=eq.1" \
             --data-urlencode "limit=1" \
             --header "apikey: $SUPABASE_ANON_KEY" \
-            --header "Authorization: Bearer $SUPABASE_ANON_KEY" \
             --output /dev/null
 
           echo "Supabase health check succeeded."
